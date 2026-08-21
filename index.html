@@ -701,14 +701,14 @@ function onAppStateLoaded(data) {
 }
 
 // ─── Login ─────────────────────────────────────────────────────────
-let _loginEmail = null;
+let _loginName = null;
 
 function showLoginScreen() {
   showView('login');
   callGAS('getPlayerList').then(players => {
     const el = document.getElementById('login-player-list');
     el.innerHTML = players.map(p => `
-      <button onclick="selectLoginPlayer('${p.email}','${p.displayName.replace(/'/g,"\\'")}')
+      <button onclick="selectLoginPlayer('${p.name}','${p.displayName.replace(/'/g,"\\'")}')
 " style="
         width:100%;padding:.85rem 1rem;background:var(--surface);border:2px solid var(--border);
         border-radius:10px;color:var(--text);font-size:1rem;font-weight:600;cursor:pointer;
@@ -722,8 +722,8 @@ function showLoginScreen() {
   });
 }
 
-function selectLoginPlayer(email, displayName) {
-  _loginEmail = email;
+function selectLoginPlayer(name, displayName) {
+  _loginName = name;
   document.getElementById('login-step-names').classList.add('hidden');
   document.getElementById('login-step-pin').classList.remove('hidden');
   document.getElementById('login-greeting').textContent = `Hi ${displayName}!`;
@@ -733,7 +733,7 @@ function selectLoginPlayer(email, displayName) {
 }
 
 function backToNames() {
-  _loginEmail = null;
+  _loginName = null;
   document.getElementById('login-step-pin').classList.add('hidden');
   document.getElementById('login-step-names').classList.remove('hidden');
   document.getElementById('login-pin-input').value = '';
@@ -746,7 +746,7 @@ async function submitLogin() {
   errEl.classList.add('hidden');
   showLoader();
   try {
-    const user = await callGAS('verifyPin', _loginEmail, pin);
+    const user = await callGAS('verifyPin', _loginName, pin);
     hideLoader();
     if (!user) {
       errEl.classList.remove('hidden');
@@ -755,7 +755,7 @@ async function submitLogin() {
       return;
     }
     // Save session
-    STATE.auth = { email: _loginEmail, pin };
+    STATE.auth = { name: _loginName, pin };
     STATE.user = user;
     localStorage.setItem('b5_auth', JSON.stringify(STATE.auth));
     localStorage.setItem('b5_user', JSON.stringify(STATE.user));
@@ -1361,7 +1361,7 @@ function renderAdminDashboard(data) {
     populateOverrideSelectors(null, []);
     // Still load player list for PIN management even when no active week
     callGAS('getPlayerList').then(players => {
-      populatePinList(players.map(p => ({ email: p.email, displayName: p.displayName })));
+      populatePinList(players.map(p => ({ name: p.name, displayName: p.displayName })));
     }).catch(() => {});
     return;
   }
@@ -1428,7 +1428,7 @@ function populatePinList(subStatus) {
       <span style="flex:1;font-weight:600;font-size:.9rem">${s.displayName}</span>
       <input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4"
         placeholder="PIN"
-        data-email="${s.email}"
+        data-name="${s.name || s.email}"
         style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
                color:var(--text);font-size:.9rem;padding:.35rem .5rem;text-align:center;outline:none"
         class="admin-pin-input">
@@ -1443,7 +1443,7 @@ function adminSavePins() {
     const pin = inp.value.trim();
     if (!pin) return; // skip blanks
     if (!/^\d{4}$/.test(pin)) { showToast(`PINs must be exactly 4 digits`, 'error'); hasError = true; return; }
-    pins.push({ email: inp.getAttribute('data-email'), pin });
+    pins.push({ name: inp.getAttribute('data-name'), pin });
   });
   if (hasError || !pins.length) { if (!hasError) showToast('Enter at least one PIN to save', 'error'); return; }
   gsr(r => { showToast(`Saved ${r.updated} PIN(s)!`, 'success'); }, onError)
