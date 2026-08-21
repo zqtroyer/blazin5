@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Blazin' 5 Pick'em</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  background:#0f172a;color:#e2e8f0;min-height:100vh;
+}
+
+/* ── Tokens ──────────────────────────────────────────── */
+:root{
+  --bg:       #0f172a;
+  --surface:  #1e293b;
+  --surface2: #273549;
+  --border:   #334155;
+  --text:     #e2e8f0;
+  --muted:    #94a3b8;
+  --orange:   #f97316;
+  --orange2:  #ea6c0a;
+  --green:    #22c55e;
+  --red:      #ef4444;
+  --yellow:   #eab308;
+  --blue:     #3b82f6;
+  --radius:   12px;
+}
+
+/* ── Layout ──────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;min-height:100vh}
+
+header{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:0 1rem;display:flex;align-items:center;justify-content:space-between;
+  height:56px;position:sticky;top:0;z-index:100;
+}
+.logo{font-size:1.2rem;font-weight:800;color:var(--orange);letter-spacing:-0.5px}
+.logo span{color:var(--text)}
+.user-badge{font-size:.8rem;color:var(--muted);display:flex;align-items:center;gap:.5rem}
+.admin-badge{
+  background:var(--orange);color:#000;font-size:.65rem;font-weight:700;
+  padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;
+}
+.player-badge{
+  background:rgba(34,197,94,.2);color:var(--green);font-size:.65rem;font-weight:700;
+  padding:2px 6px;border-radius:4px;text-transform:uppercase;letter-spacing:.5px;
+  border:1px solid rgba(34,197,94,.35);
+}
+
+nav{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;overflow-x:auto;scrollbar-width:none;
+}
+nav::-webkit-scrollbar{display:none}
+.nav-btn{
+  padding:.65rem 1rem;font-size:.85rem;font-weight:600;color:var(--muted);
+  border:none;background:none;cursor:pointer;white-space:nowrap;
+  border-bottom:2px solid transparent;transition:all .15s;
+}
+.nav-btn:hover{color:var(--text)}
+.nav-btn.active{color:var(--orange);border-bottom-color:var(--orange)}
+
+main{flex:1;padding:1rem;max-width:900px;margin:0 auto;width:100%}
+
+/* ── Cards ───────────────────────────────────────────── */
+.card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:var(--radius);padding:1rem;margin-bottom:1rem;
+}
+.card-title{font-size:.7rem;font-weight:700;color:var(--orange);text-transform:uppercase;letter-spacing:.8px;margin-bottom:.75rem}
+.section-title{font-size:1rem;font-weight:700;margin-bottom:.75rem;color:var(--text)}
+
+/* ── Buttons ─────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;
+  border-radius:8px;font-size:.85rem;font-weight:600;border:none;cursor:pointer;
+  transition:all .15s;text-decoration:none;
+}
+.btn-primary{background:var(--orange);color:#000}
+.btn-primary:hover{background:var(--orange2)}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-secondary:hover{background:var(--border)}
+.btn-danger{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b}
+.btn-danger:hover{background:#991b1b}
+.btn-green{background:#14532d;color:#86efac;border:1px solid #166534}
+.btn-sm{padding:.3rem .7rem;font-size:.78rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── Loading bar ─────────────────────────────────────── */
+#loader-bar{
+  position:fixed;top:0;left:0;width:100%;height:4px;z-index:9999;
+  background:linear-gradient(90deg,transparent 0%,var(--orange) 35%,#fde68a 50%,var(--orange) 65%,transparent 100%);
+  background-size:250% 100%;
+  animation:loader-sweep 1s ease-in-out infinite;
+  box-shadow:0 0 10px 2px rgba(249,115,22,.7);
+  display:none;
+}
+#loader-bar.active{display:block;}
+#loader-overlay{
+  position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.25);
+  display:none;pointer-events:none;
+}
+#loader-overlay.active{display:block;}
+@keyframes loader-sweep{
+  0%{background-position:100% 0}
+  100%{background-position:-100% 0}
+}
+
+/* ── Game pick card ──────────────────────────────────── */
+.game-card{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:.85rem;margin-bottom:.6rem;
+  transition:border-color .15s;
+}
+.game-card.locked{opacity:.6}
+.game-card.picked-home,.game-card.picked-away{border-color:var(--orange)}
+.game-meta{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;display:flex;justify-content:space-between}
+.game-meta .lock-label{color:var(--red);font-weight:600}
+.matchup{display:grid;grid-template-columns:1fr auto 1fr;gap:.5rem;align-items:center}
+.team-btn{
+  display:flex;flex-direction:column;align-items:center;gap:.2rem;
+  padding:.6rem;border-radius:8px;border:2px solid var(--border);
+  background:var(--surface);cursor:pointer;transition:all .15s;width:100%;
+}
+@media(hover:hover){.team-btn:hover:not(:disabled){border-color:var(--orange);background:rgba(249,115,22,.08)}}
+.team-btn.selected{border-color:var(--orange);background:rgba(249,115,22,.15)}
+.team-btn:disabled{cursor:not-allowed;opacity:.5}
+.team-abbr{font-size:1.1rem;font-weight:800;color:var(--text);transition:color .15s}
+.team-spread{font-size:.85rem;font-weight:600;color:var(--muted)}
+.team-btn.selected .team-spread{color:var(--orange)}
+.vs-label{color:var(--muted);font-size:.75rem;font-weight:700}
+.dd-row{margin-top:.6rem;display:flex;align-items:center;gap:.5rem;justify-content:flex-end}
+.dd-toggle{
+  display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted);
+  cursor:pointer;padding:.3rem .6rem;border-radius:6px;border:1px solid var(--border);
+  background:none;transition:all .15s;
+}
+.dd-toggle:hover{border-color:var(--orange);color:var(--text)}
+.dd-toggle.active{border-color:var(--orange);color:var(--orange);background:rgba(249,115,22,.1);font-weight:700}
+.dd-toggle:disabled{opacity:.4;cursor:not-allowed}
+.flame{font-size:1rem}
+
+/* ── Pick status bar ─────────────────────────────────── */
+.pick-bar{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:var(--radius);padding:.75rem 1rem;margin-bottom:1rem;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;
+}
+.pick-count{font-size:.85rem;font-weight:700}
+.pick-count .n{color:var(--orange);font-size:1.1rem}
+.dd-count{font-size:.78rem;color:var(--muted)}
+.dd-count.ok{color:var(--green)}
+
+/* ── Submission status ───────────────────────────────── */
+.sub-status{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+.sub-pill{
+  padding:.25rem .7rem;border-radius:20px;font-size:.75rem;font-weight:600;
+  border:1px solid transparent;
+}
+.sub-pill.done{background:rgba(34,197,94,.15);color:var(--green);border-color:rgba(34,197,94,.3)}
+.sub-pill.waiting{background:rgba(148,163,184,.1);color:var(--muted);border-color:var(--border)}
+
+/* ── Results grid ────────────────────────────────────── */
+.results-table{width:100%;border-collapse:collapse;font-size:.82rem}
+.results-table th{
+  text-align:left;padding:.5rem .6rem;color:var(--muted);
+  font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  border-bottom:1px solid var(--border);
+}
+.results-table td{padding:.5rem .6rem;border-bottom:1px solid rgba(51,65,85,.5)}
+.results-table tr:last-child td{border-bottom:none}
+.badge{
+  display:inline-block;padding:.15rem .45rem;border-radius:4px;
+  font-size:.72rem;font-weight:700;
+}
+.badge-W{background:rgba(34,197,94,.2);color:var(--green)}
+.badge-L{background:rgba(239,68,68,.2);color:var(--red)}
+.badge-P{background:rgba(234,179,8,.2);color:var(--yellow)}
+.badge-C{background:rgba(148,163,184,.15);color:var(--muted)}
+.badge-DD{background:rgba(249,115,22,.2);color:var(--orange);margin-left:.25rem}
+
+/* ── Standings ───────────────────────────────────────── */
+.standings-row{
+  display:flex;align-items:center;gap:.75rem;padding:.7rem;
+  border-radius:8px;margin-bottom:.4rem;background:var(--surface2);
+}
+.standings-row:first-child{background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.3)}
+.standings-rank{font-size:1rem;font-weight:800;color:var(--muted);width:1.5rem;text-align:center}
+.standings-row:first-child .standings-rank{color:var(--orange)}
+.standings-name{flex:1;font-weight:600}
+.standings-record{font-size:.85rem;color:var(--muted);text-align:right}
+.standings-dd{font-size:.78rem;color:var(--orange);text-align:right;white-space:nowrap}
+.standings-pct{font-size:.9rem;font-weight:700;width:4rem;text-align:right}
+.standings-row:first-child .standings-pct{color:var(--orange)}
+
+/* ── Admin panels ────────────────────────────────────── */
+.admin-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
+@media(max-width:600px){.admin-grid{grid-template-columns:1fr}}
+.admin-action{
+  background:var(--surface2);border:1px solid var(--border);border-radius:10px;
+  padding:1rem;display:flex;flex-direction:column;gap:.5rem;
+}
+.admin-action h4{font-size:.85rem;font-weight:700;color:var(--text)}
+.admin-action p{font-size:.78rem;color:var(--muted);flex:1}
+.sub-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.5rem 0;border-bottom:1px solid rgba(51,65,85,.5);
+}
+.sub-row:last-child{border-bottom:none}
+.pick-review{font-size:.78rem;color:var(--muted);margin-top:.25rem}
+
+/* ── Inputs ──────────────────────────────────────────── */
+.form-group{margin-bottom:.75rem}
+.form-label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);margin-bottom:.3rem}
+.form-input{
+  width:100%;padding:.5rem .75rem;background:var(--bg);color:var(--text);
+  border:1px solid var(--border);border-radius:8px;font-size:.88rem;
+}
+.form-input:focus{outline:none;border-color:var(--orange)}
+select.form-input option{background:var(--surface)}
+
+/* ── Toast ───────────────────────────────────────────── */
+#toast{
+  position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);
+  background:var(--surface);border:1px solid var(--border);
+  padding:.65rem 1.2rem;border-radius:8px;font-size:.85rem;font-weight:600;
+  box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:999;
+  opacity:0;transition:opacity .2s;pointer-events:none;
+}
+#toast.show{opacity:1}
+#toast.success{border-color:var(--green);color:var(--green)}
+#toast.error{border-color:var(--red);color:var(--red)}
+
+/* ── Loading ─────────────────────────────────────────── */
+.spinner{
+  display:inline-block;width:1.2rem;height:1.2rem;
+  border:2px solid var(--border);border-top-color:var(--orange);
+  border-radius:50%;animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-full{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;gap:1rem}
+.loading-full .spinner{width:2.5rem;height:2.5rem;border-width:3px}
+
+/* ── Reveal banner ───────────────────────────────────── */
+.reveal-banner{
+  background:linear-gradient(135deg,rgba(249,115,22,.2),rgba(234,88,12,.1));
+  border:1px solid rgba(249,115,22,.4);border-radius:var(--radius);
+  padding:1rem;text-align:center;margin-bottom:1rem;
+}
+.reveal-banner h2{font-size:1.1rem;color:var(--orange);margin-bottom:.25rem}
+.reveal-banner p{font-size:.82rem;color:var(--muted)}
+
+/* ── All picks grid ──────────────────────────────────── */
+.picks-grid{overflow-x:auto}
+.picks-grid table{min-width:500px;width:100%;border-collapse:collapse;font-size:.8rem}
+.picks-grid th{
+  padding:.5rem .6rem;color:var(--muted);font-size:.7rem;font-weight:700;
+  text-transform:uppercase;border-bottom:1px solid var(--border);text-align:left;
+}
+.picks-grid td{padding:.45rem .6rem;border-bottom:1px solid rgba(51,65,85,.4);vertical-align:top}
+.pick-cell{display:flex;flex-direction:column;gap:.15rem}
+.pick-team{font-weight:600}
+.pick-spread{font-size:.72rem;color:var(--muted)}
+.pick-dd-badge{font-size:.65rem;color:var(--orange);font-weight:700}
+
+/* ── Copy text area ──────────────────────────────────── */
+.copy-box{
+  background:var(--bg);border:1px solid var(--border);border-radius:8px;
+  padding:.75rem;font-size:.8rem;line-height:1.6;color:var(--muted);
+  white-space:pre-wrap;font-family:monospace;margin-top:.5rem;max-height:300px;overflow-y:auto;
+}
+
+/* ── History list ────────────────────────────────────── */
+.week-list-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.6rem .75rem;border-radius:8px;background:var(--surface2);
+  margin-bottom:.4rem;cursor:pointer;border:1px solid transparent;
+}
+.week-list-item:hover{border-color:var(--border)}
+.week-label{font-weight:600;font-size:.88rem}
+.week-meta{font-size:.75rem;color:var(--muted)}
+
+/* ── Modal ───────────────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;
+  display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;overflow-y:auto;
+}
+.modal{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+  padding:1.25rem;max-width:500px;width:100%;
+}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:1rem;color:var(--orange)}
+.modal-actions{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1rem}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="loader-bar"></div>
+<div id="loader-overlay"></div>
+<div id="app">
+  <header>
+    <div class="logo">🔥<span>Blazin'</span> 5</div>
+    <div class="user-badge">
+      <span id="hdr-name">...</span>
+      <span id="hdr-admin" class="admin-badge hidden">Admin</span>
+      <span id="hdr-player" class="player-badge hidden">Player</span>
+      <button id="hdr-logout" class="hidden" onclick="logout()" style="background:none;border:none;color:var(--muted);font-size:.72rem;cursor:pointer;padding:2px 4px;margin-left:.25rem" title="Log out">✕</button>
+    </div>
+  </header>
+
+  <nav id="main-nav">
+    <button class="nav-btn active" data-view="picks">My Picks</button>
+    <button class="nav-btn" data-view="standings">Standings</button>
+    <button class="nav-btn" data-view="history">History</button>
+    <button class="nav-btn hidden" id="admin-nav-btn" data-view="admin">⚙ Admin</button>
+  </nav>
+
+  <main id="main-content">
+    <!-- Loading state -->
+    <div id="view-loading" class="loading-full">
+      <div class="spinner"></div>
+      <div style="color:var(--muted);font-size:.85rem">Loading picks…</div>
+    </div>
+
+    <!-- Login -->
+    <div id="view-login" class="hidden" style="display:flex;align-items:center;justify-content:center;min-height:70vh;padding:1.5rem">
+      <div style="width:100%;max-width:380px">
+        <div style="text-align:center;margin-bottom:2rem">
+          <div style="font-size:2.5rem;margin-bottom:.5rem">🔥</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--orange)">Blazin' 5</div>
+          <div style="color:var(--muted);font-size:.85rem;margin-top:.25rem">Pick'em League</div>
+        </div>
+
+        <!-- Step 1: pick your name -->
+        <div id="login-step-names">
+          <div style="font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.75rem;text-align:center">Who are you?</div>
+          <div id="login-player-list" style="display:flex;flex-direction:column;gap:.5rem"></div>
+        </div>
+
+        <!-- Step 2: enter PIN -->
+        <div id="login-step-pin" class="hidden">
+          <button onclick="backToNames()" style="background:none;border:none;color:var(--muted);font-size:.8rem;cursor:pointer;padding:0;margin-bottom:1rem">← Back</button>
+          <div style="text-align:center;margin-bottom:1.25rem">
+            <div id="login-greeting" style="font-size:1rem;font-weight:700;color:var(--text)">Hi!</div>
+            <div style="font-size:.8rem;color:var(--muted);margin-top:.25rem">Enter your 4-digit PIN</div>
+          </div>
+          <input type="tel" id="login-pin-input" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+            placeholder="• • • •"
+            style="width:100%;background:var(--surface2);border:2px solid var(--border);border-radius:8px;
+                   color:var(--text);font-size:1.5rem;text-align:center;padding:.75rem;letter-spacing:.5rem;
+                   outline:none;-webkit-appearance:none"
+            onkeyup="if(event.key==='Enter')submitLogin()">
+          <button class="btn btn-primary" style="width:100%;margin-top:.75rem" onclick="submitLogin()">Enter</button>
+          <div id="login-error" class="hidden" style="color:var(--red);font-size:.8rem;text-align:center;margin-top:.5rem">Wrong PIN — try again</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ PICKS VIEW ════ -->
+    <div id="view-picks" class="hidden">
+
+      <!-- No week open -->
+      <div id="no-week-msg" class="hidden">
+        <div class="card" style="text-align:center;padding:2rem">
+          <div style="font-size:2rem;margin-bottom:.75rem">⏳</div>
+          <div class="section-title">No active week</div>
+          <div style="color:var(--muted);font-size:.85rem;margin-top:.5rem">Check back Thursday when new lines drop.</div>
+        </div>
+        <!-- Last closed week summary -->
+        <div id="last-week-summary" class="hidden">
+          <div class="card">
+            <div class="card-title" id="last-week-label">Last Week Results</div>
+            <div id="last-week-standings"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Your Picks</div>
+            <div id="last-week-detail"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Week open: picking in progress -->
+      <div id="week-picks-area" class="hidden">
+        <div id="week-header" class="card" style="padding:.75rem 1rem">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
+            <div>
+              <div class="card-title" id="week-label-sm">Week 1</div>
+              <div style="font-size:.8rem;color:var(--muted)">Deadline: <span id="week-deadline">—</span></div>
+            </div>
+            <div id="sub-pills" class="sub-status"></div>
+          </div>
+        </div>
+
+        <!-- Submitted: picks locked in, waiting for others -->
+        <div id="submitted-area" class="hidden">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+              <div class="card-title" style="margin:0">✓ Picks Submitted</div>
+              <button class="btn btn-secondary btn-sm" id="edit-picks-btn" onclick="editPicks()">Edit Picks</button>
+            </div>
+            <div id="submitted-picks-list"></div>
+          </div>
+        </div>
+
+        <!-- Before reveal: player's own picks -->
+        <div id="picking-area">
+          <div class="pick-bar">
+            <div>
+              <div class="pick-count"><span class="n" id="pick-count-n">0</span>/5 picks selected</div>
+              <div class="dd-count" id="dd-status">No Double Down selected yet</div>
+            </div>
+            <button class="btn btn-primary" id="submit-btn" disabled onclick="submitPicks()">
+              Submit Picks
+            </button>
+          </div>
+          <div id="games-list"></div>
+        </div>
+
+        <!-- After reveal: all picks visible -->
+        <div id="revealed-area" class="hidden">
+          <div class="reveal-banner">
+            <h2>🔓 Picks Revealed!</h2>
+            <p>All 5 players have locked in. Here's how everyone picked this week.</p>
+          </div>
+          <div class="card">
+            <div class="card-title">This Week's Picks</div>
+            <div class="picks-grid" id="all-picks-grid"></div>
+          </div>
+        </div>
+
+        <!-- Results (when week is closed) -->
+        <div id="results-area" class="hidden">
+          <div class="card">
+            <div class="card-title">Week Results</div>
+            <div id="week-standings-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Pick-by-Pick Results</div>
+            <div id="results-detail"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ STANDINGS VIEW ════ -->
+    <div id="view-standings" class="hidden">
+      <div class="card">
+        <div class="card-title">Season Standings — <span id="season-label">2026</span></div>
+        <div id="season-standings-list"></div>
+      </div>
+      <div class="card" style="font-size:.78rem;color:var(--muted);padding:.75rem 1rem">
+        <strong>Scoring:</strong> Regular win = +1W · DD win = +2W · Any loss = +1L · Push = +0.5T<br>
+        Ranked by <strong>(W + 0.5×T) / (W + L + T)</strong>
+      </div>
+    </div>
+
+    <!-- ════ HISTORY VIEW ════ -->
+    <div id="view-history" class="hidden">
+      <div id="history-week-list" class="card">
+        <div class="card-title">Past Weeks</div>
+        <div id="week-list-items"></div>
+      </div>
+      <div id="history-detail" class="hidden">
+        <button class="btn btn-secondary btn-sm" onclick="showHistoryList()" style="margin-bottom:.75rem">← Back to weeks</button>
+        <div class="card">
+          <div class="card-title" id="hist-week-label">Week</div>
+          <div id="hist-standings"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">All Picks</div>
+          <div class="picks-grid" id="hist-picks-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════ ADMIN VIEW ════ -->
+    <div id="view-admin" class="hidden">
+      <div class="card">
+        <div class="card-title">Admin Dashboard</div>
+        <div id="admin-week-status" style="font-size:.85rem;color:var(--muted);margin-bottom:.75rem"></div>
+
+        <!-- Current week actions -->
+        <div class="admin-grid" id="admin-actions-grid"></div>
+
+        <!-- Submission status -->
+        <div id="admin-sub-section" class="hidden">
+          <div class="section-title" style="margin-top:.75rem">Submission Status</div>
+          <div id="admin-sub-status"></div>
+        </div>
+
+        <!-- Grade preview -->
+        <div id="admin-grade-section" class="hidden">
+          <div class="section-title" style="margin-top:.75rem">Grade Preview</div>
+          <div id="admin-grade-preview"></div>
+          <div style="margin-top:.5rem;display:flex;gap:.5rem">
+            <button class="btn btn-primary" onclick="adminPublishResults()">✓ Publish Results</button>
+            <button class="btn btn-secondary" onclick="adminGradeWeek()">↻ Re-grade</button>
+          </div>
+        </div>
+
+        <!-- Copy text -->
+        <div id="admin-copy-section" style="margin-top:1rem" class="hidden">
+          <div class="section-title">Group Text Summaries</div>
+          <div style="display:flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap">
+            <button class="btn btn-secondary btn-sm" onclick="getCopyText('reveal')">Picks Reveal</button>
+            <button class="btn btn-secondary btn-sm" onclick="getCopyText('results')">Results</button>
+            <button class="btn btn-secondary btn-sm" onclick="getCopyText('standings')">Standings</button>
+          </div>
+          <div class="copy-box" id="copy-box" style="display:none"></div>
+          <button class="btn btn-secondary btn-sm" id="copy-btn" style="margin-top:.4rem;display:none" onclick="copyText()">Copy to clipboard</button>
+        </div>
+      </div>
+
+      <!-- Open new week -->
+      <div class="card" id="admin-open-week-card">
+        <div class="card-title">Open New Week</div>
+        <div class="admin-grid">
+          <div class="form-group">
+            <label class="form-label">Week number</label>
+            <input type="number" class="form-input" id="new-week-num" min="1" max="22" value="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type</label>
+            <select class="form-input" id="new-week-type">
+              <option value="regular">Regular Season</option>
+              <option value="playoffs">Playoffs</option>
+              <option value="test">Test Week</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deadline (leave blank = next Sat noon ET)</label>
+            <input type="datetime-local" class="form-input" id="new-week-deadline">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <input type="text" class="form-input" id="new-week-notes" placeholder="e.g. TNF: Bills vs Chiefs">
+          </div>
+        </div>
+        <div id="test-games-section" class="hidden">
+          <div class="section-title" style="margin-bottom:.5rem">Test Games</div>
+          <div id="test-games-list"></div>
+          <button class="btn btn-secondary btn-sm" onclick="addTestGame()" style="margin-top:.4rem">+ Add game</button>
+        </div>
+        <div style="margin-top:.75rem;display:flex;gap:.5rem">
+          <button class="btn btn-primary" onclick="adminOpenWeek()">🏈 Open Week &amp; Pull Odds</button>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);margin-top:.5rem">For Test weeks, odds are not pulled — enter games manually above.</div>
+      </div>
+
+      <!-- Override picks -->
+      <div class="card">
+        <div class="card-title">Override / Enter Pick for Player</div>
+        <div class="admin-grid">
+          <div class="form-group">
+            <label class="form-label">Player</label>
+            <select class="form-input" id="override-player"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Game</label>
+            <select class="form-input" id="override-game"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pick</label>
+            <select class="form-input" id="override-pick"></select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end">
+            <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.85rem">
+              <input type="checkbox" id="override-dd"> Double Down
+            </label>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="adminSetPick()">Save Pick</button>
+      </div>
+
+      <!-- Tools & games -->
+      <div class="card" id="admin-score-card">
+        <div class="card-title">Tools</div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+          <button class="btn btn-secondary btn-sm" onclick="adminPullScores()">↻ Pull Scores from API</button>
+          <button class="btn btn-secondary btn-sm" onclick="adminGradeWeek()">⚡ Grade Week</button>
+          <button class="btn btn-secondary btn-sm" style="color:#f87171;border-color:#f87171" onclick="adminDeleteWeek()">🗑 Delete Week</button>
+          <button class="btn btn-secondary btn-sm" style="color:#a78bfa;border-color:#a78bfa" onclick="adminFillTestPicks()" title="Fill random picks for all players who haven't submitted (test weeks only)">🎲 Fill Test Picks</button>
+          <button class="btn btn-secondary btn-sm" style="color:#a78bfa;border-color:#a78bfa" onclick="adminFillTestScores()" title="Fill random final scores for all games (test weeks only)">🎲 Fill Test Scores</button>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted)">To enter or fix scores, edit the <strong>Games</strong> sheet directly.</div>
+        <div id="admin-games-list" style="margin-top:.75rem"></div>
+      </div>
+
+      <!-- Player PINs -->
+      <div class="card">
+        <div class="card-title">Player PINs</div>
+        <div style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Set each player's 4-digit login PIN. They'll use this every time they sign in on a new device.</div>
+        <div id="admin-pin-list"></div>
+        <button class="btn btn-primary btn-sm" style="margin-top:.75rem" onclick="adminSavePins()">Save PINs</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+// ─── Loader ────────────────────────────────────────────────────────
+let _loaderCount = 0;
+function showLoader() {
+  _loaderCount++;
+  document.getElementById('loader-bar').classList.add('active');
+  document.getElementById('loader-overlay').classList.add('active');
+}
+function hideLoader() {
+  _loaderCount = Math.max(0, _loaderCount - 1);
+  if (_loaderCount === 0) {
+    document.getElementById('loader-bar').classList.remove('active');
+    document.getElementById('loader-overlay').classList.remove('active');
+  }
+}
+
+// ─── GAS API URL ────────────────────────────────────────────────────
+// Paste your GAS /exec URL here after deploying the backend.
+const GAS_URL = 'PASTE_YOUR_GAS_EXEC_URL_HERE';
+
+/**
+ * Call a GAS backend function via fetch (no google.script.run required).
+ * Sends body as plain text to avoid CORS preflight.
+ */
+async function callGAS(fn, ...args) {
+  const res = await fetch(GAS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ fn, args, auth: STATE.auth || {} }),
+    // No Content-Type header → defaults to text/plain → no CORS preflight
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.result;
+}
+
+/**
+ * Drop-in replacement for google.script.run.
+ * Same call pattern: gsr(successFn, failFn, silent).methodName(args)
+ * Uses a Proxy to intercept the method name and route to callGAS.
+ */
+function gsr(successFn, failFn, silent) {
+  if (!silent) showLoader();
+  return new Proxy({}, {
+    get: (_, fn) => (...args) => {
+      callGAS(fn, ...args)
+        .then(r  => { if (!silent) hideLoader(); successFn(r); })
+        .catch(e => { if (!silent) hideLoader(); (failFn || onError)(e.message || String(e)); });
+    }
+  });
+}
+
+// ─── State ─────────────────────────────────────────────────────────
+let STATE = {
+  user:            null,
+  auth:            null,   // { email, pin } — kept separate, not sent to server
+  weekData:        null,
+  season:          '2026',
+  seasonStandings: [],
+  allWeeks:        [],
+};
+let myPickSelections = {}; // gameId → {pickedTeam, isDD}
+let pollInterval = null;
+let testGames = [];
+
+// ─── Init ──────────────────────────────────────────────────────────
+window.onload = function() {
+  try {
+    const storedAuth = localStorage.getItem('b5_auth');
+    const storedUser = localStorage.getItem('b5_user');
+    if (storedAuth && storedUser) {
+      STATE.auth = JSON.parse(storedAuth);
+      STATE.user = JSON.parse(storedUser);
+      loadAppState();
+      return;
+    }
+  } catch(e) {}
+  // No stored session — show login
+  showLoginScreen();
+};
+
+function loadAppState() {
+  showView('loading');
+  gsr(onAppStateLoaded, onError)
+    .getAppState();
+}
+
+function onAppStateLoaded(data) {
+  // Merge server data but preserve local auth (pin never comes from server)
+  const auth = STATE.auth;
+  STATE = { ...STATE, ...data };
+  STATE.auth = auth;
+  renderHeader();
+  renderCurrentView();
+}
+
+// ─── Login ─────────────────────────────────────────────────────────
+let _loginEmail = null;
+
+function showLoginScreen() {
+  showView('login');
+  callGAS('getPlayerList').then(players => {
+    const el = document.getElementById('login-player-list');
+    el.innerHTML = players.map(p => `
+      <button onclick="selectLoginPlayer('${p.email}','${p.displayName.replace(/'/g,"\\'")}')
+" style="
+        width:100%;padding:.85rem 1rem;background:var(--surface);border:2px solid var(--border);
+        border-radius:10px;color:var(--text);font-size:1rem;font-weight:600;cursor:pointer;
+        text-align:left;transition:border-color .15s;
+      " onmouseover="this.style.borderColor='var(--orange)'" onmouseout="this.style.borderColor='var(--border)'">
+        ${p.displayName}
+      </button>`).join('');
+  }).catch(() => {
+    document.getElementById('login-player-list').innerHTML =
+      '<div style="color:var(--red);font-size:.85rem;text-align:center">Could not load players — check your connection.</div>';
+  });
+}
+
+function selectLoginPlayer(email, displayName) {
+  _loginEmail = email;
+  document.getElementById('login-step-names').classList.add('hidden');
+  document.getElementById('login-step-pin').classList.remove('hidden');
+  document.getElementById('login-greeting').textContent = `Hi ${displayName}!`;
+  document.getElementById('login-error').classList.add('hidden');
+  document.getElementById('login-pin-input').value = '';
+  setTimeout(() => document.getElementById('login-pin-input').focus(), 100);
+}
+
+function backToNames() {
+  _loginEmail = null;
+  document.getElementById('login-step-pin').classList.add('hidden');
+  document.getElementById('login-step-names').classList.remove('hidden');
+  document.getElementById('login-pin-input').value = '';
+}
+
+async function submitLogin() {
+  const pin = document.getElementById('login-pin-input').value.trim();
+  if (pin.length !== 4) { showToast('Enter a 4-digit PIN', 'error'); return; }
+  const errEl = document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  showLoader();
+  try {
+    const user = await callGAS('verifyPin', _loginEmail, pin);
+    hideLoader();
+    if (!user) {
+      errEl.classList.remove('hidden');
+      document.getElementById('login-pin-input').value = '';
+      document.getElementById('login-pin-input').focus();
+      return;
+    }
+    // Save session
+    STATE.auth = { email: _loginEmail, pin };
+    STATE.user = user;
+    localStorage.setItem('b5_auth', JSON.stringify(STATE.auth));
+    localStorage.setItem('b5_user', JSON.stringify(STATE.user));
+    loadAppState();
+  } catch(e) {
+    hideLoader();
+    showToast('Login failed — check your connection', 'error');
+  }
+}
+
+function logout() {
+  localStorage.removeItem('b5_auth');
+  localStorage.removeItem('b5_user');
+  STATE.auth = null;
+  STATE.user = null;
+  // Reset header
+  document.getElementById('hdr-name').textContent = '...';
+  document.getElementById('hdr-admin').classList.add('hidden');
+  document.getElementById('hdr-player').classList.add('hidden');
+  document.getElementById('hdr-logout').classList.add('hidden');
+  document.getElementById('admin-nav-btn').classList.add('hidden');
+  if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+  showLoginScreen();
+}
+
+// ─── Views ─────────────────────────────────────────────────────────
+let currentView = 'picks';
+
+document.querySelectorAll('.nav-btn[data-view]').forEach(btn => {
+  btn.addEventListener('click', () => switchView(btn.dataset.view));
+});
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  renderCurrentView();
+}
+
+function renderCurrentView() {
+  if (currentView === 'picks')     renderPicksView();
+  else if (currentView === 'standings') renderStandingsView();
+  else if (currentView === 'history')  renderHistoryView();
+  else if (currentView === 'admin')    renderAdminView();
+}
+
+function showView(id) {
+  const views = ['loading','login','not-in-league','picks','standings','history','admin'];
+  views.forEach(v => {
+    const el = document.getElementById('view-' + v);
+    if (el) el.classList.toggle('hidden', v !== id);
+  });
+  // Hide nav when on login/loading screen
+  const hideNav = id === 'loading' || id === 'login';
+  document.getElementById('main-nav').style.display = hideNav ? 'none' : '';
+}
+
+function renderHeader() {
+  const u = STATE.user;
+  if (!u) return;
+  document.getElementById('hdr-name').textContent = u.displayName || u.email;
+  document.getElementById('hdr-logout').classList.remove('hidden');
+  const adminBadge = document.getElementById('hdr-admin');
+  const adminNav   = document.getElementById('admin-nav-btn');
+  if (u.isAdmin) {
+    adminBadge.classList.remove('hidden');
+    adminNav.classList.remove('hidden');
+  } else if (u.role === 'player') {
+    document.getElementById('hdr-player').classList.remove('hidden');
+  }
+}
+
+// ─── PICKS VIEW ────────────────────────────────────────────────────
+function renderPicksView() {
+  showView('picks');
+  if (!STATE.weekData || !STATE.weekData.week) {
+    document.getElementById('no-week-msg').classList.remove('hidden');
+    document.getElementById('week-picks-area').classList.add('hidden');
+    loadLastClosedWeekSummary();
+    return;
+  }
+  document.getElementById('no-week-msg').classList.add('hidden');
+  document.getElementById('week-picks-area').classList.remove('hidden');
+
+  const { week, games, myPicks, allPicksIn, subStatus, results } = STATE.weekData;
+
+  // Header
+  const typeLabel = week.type === 'playoffs' ? 'Playoffs' : (week.type === 'test' ? '🧪 Test ' : '');
+  document.getElementById('week-label-sm').textContent = `${typeLabel}Week ${week.weekNum}`;
+  document.getElementById('week-deadline').textContent = week.deadline
+    ? new Date(week.deadline).toLocaleString('en-US', {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'})
+    : 'TBD';
+
+  // Submission pills
+  renderSubPills(subStatus);
+
+  // Decide which sub-area to show
+  const weekClosed   = week.status === 'closed';
+  const picking      = document.getElementById('picking-area');
+  const revealed     = document.getElementById('revealed-area');
+  const resultsDiv   = document.getElementById('results-area');
+  const submittedDiv = document.getElementById('submitted-area');
+  const mySubmitted  = (subStatus || []).find(s => s.email === STATE.user?.email)?.submitted;
+
+  if (weekClosed && results.length) {
+    picking.classList.add('hidden');
+    revealed.classList.add('hidden');
+    resultsDiv.classList.remove('hidden');
+    submittedDiv.classList.add('hidden');
+    renderWeekResults(results, games, myPicks);
+  } else if (allPicksIn) {
+    picking.classList.add('hidden');
+    revealed.classList.remove('hidden');
+    resultsDiv.classList.add('hidden');
+    submittedDiv.classList.add('hidden');
+    renderAllPicksGrid(STATE.weekData.picks, games);
+    startPollIfNeeded(week.weekId);
+  } else if (mySubmitted) {
+    picking.classList.add('hidden');
+    revealed.classList.add('hidden');
+    resultsDiv.classList.add('hidden');
+    submittedDiv.classList.remove('hidden');
+    renderSubmittedPicks(games, myPicks);
+    startPollIfNeeded(week.weekId);
+  } else {
+    picking.classList.remove('hidden');
+    revealed.classList.add('hidden');
+    resultsDiv.classList.add('hidden');
+    submittedDiv.classList.add('hidden');
+    // Restore selections from myPicks
+    myPickSelections = {};
+    for (const p of myPicks) myPickSelections[p.gameId] = { pickedTeam: p.pickedTeam, isDD: p.isDD };
+    renderGamesList(games, myPicks);
+    startPollIfNeeded(week.weekId);
+  }
+}
+
+function loadLastClosedWeekSummary() {
+  const summaryEl = document.getElementById('last-week-summary');
+  const closedWeeks = (STATE.allWeeks || []).filter(w => w.status === 'closed');
+  if (!closedWeeks.length) {
+    summaryEl.classList.add('hidden');
+    return;
+  }
+  // allWeeks is already most-recent-first from server
+  const lastWeek = closedWeeks[0];
+  const typeLabel = lastWeek.type === 'playoffs' ? 'Playoffs ' : '';
+  document.getElementById('last-week-label').textContent = `${typeLabel}Week ${lastWeek.weekNum} Results`;
+  summaryEl.classList.remove('hidden');
+
+  gsr(data => {
+    // Standings
+    document.getElementById('last-week-standings').innerHTML = (data.standings||[]).map((s,i)=>`
+      <div class="standings-row">
+        <div class="standings-rank">${i+1}</div>
+        <div class="standings-name">${s.displayName}</div>
+        <div class="standings-record">${s.record}</div>
+        <div class="standings-dd" title="Double Down">🔥 ${s.DDW||0}-${s.DDL||0}</div>
+        <div class="standings-pct">${s.percentage}%</div>
+      </div>`).join('') || '<div style="color:var(--muted);font-size:.85rem">No results.</div>';
+
+    // My pick-by-pick results
+    const gameMap = {};
+    (data.games||[]).forEach(g => gameMap[g.gameId] = g);
+    const myResults = (data.results||[]).filter(r => r.playerEmail === STATE.user.email);
+    const detailEl = document.getElementById('last-week-detail');
+    if (!myResults.length) {
+      detailEl.innerHTML = '<div style="color:var(--muted);font-size:.85rem">No picks found for you.</div>';
+      return;
+    }
+    let html = `<table class="results-table">
+      <thead><tr><th>Game</th><th>Pick</th><th>Result</th></tr></thead><tbody>`;
+    myResults.forEach(r => {
+      const game   = gameMap[r.gameId];
+      const matchup = game ? `${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}` : r.gameId;
+      const isHome  = game && r.pickedTeam === game.homeTeam;
+      const spread  = game ? (isHome ? game.homeSpread : -game.homeSpread) : '';
+      const sign    = spread > 0 ? '+' : '';
+      const score   = game && game.homeScore != null ? `${game.awayScore}-${game.homeScore}` : '';
+      html += `<tr>
+        <td>${matchup} <span style="color:var(--muted);font-size:.75rem">${score}</span></td>
+        <td>${abbrTeam(r.pickedTeam)} ${sign}${spread}${r.isDD?'<span class="badge badge-DD">DD</span>':''}</td>
+        <td><span class="badge badge-${r.result}">${r.result==='P'?'PUSH':r.result==='C'?'CANCEL':r.result}</span>
+            ${r.result==='W'&&r.isDD?'<small style="color:var(--orange)"> +2</small>':''}</td>
+      </tr>`;
+    });
+    html += '</tbody></table>';
+    detailEl.innerHTML = html;
+  }, null, true).getWeekHistory(lastWeek.weekId);
+}
+
+function renderSubPills(subStatus) {
+  const el = document.getElementById('sub-pills');
+  el.innerHTML = (subStatus || []).map(s => {
+    const cls = s.submitted ? 'done' : 'waiting';
+    const ico = s.submitted ? '✓' : `${s.pickCount}/5`;
+    return `<span class="sub-pill ${cls}">${s.displayName} ${ico}</span>`;
+  }).join('');
+}
+
+function renderGamesList(games, myPicks) {
+  const el = document.getElementById('games-list');
+  el.innerHTML = '';
+  games.forEach(game => {
+    el.appendChild(buildGameCard(game, myPickSelections[game.gameId]));
+  });
+  updatePickBar();
+}
+
+function buildGameCard(game, sel) {
+  const card = document.createElement('div');
+  const locked = game.isLocked && STATE.weekData?.week?.type !== 'test';
+  const homeAbbr = abbrTeam(game.homeTeam);
+  const awayAbbr = abbrTeam(game.awayTeam);
+  const homeSpread = parseFloat(game.homeSpread);
+  const awaySpread = -homeSpread;
+  const fmtSpread = s => (s > 0 ? '+' : '') + s;
+
+  const pickedHome = sel && sel.pickedTeam === game.homeTeam;
+  const pickedAway = sel && sel.pickedTeam === game.awayTeam;
+  const isDD = sel && sel.isDD;
+
+  const homeColor = teamColor(game.homeTeam);
+  const awayColor = teamColor(game.awayTeam);
+  const homeAbbrStyle = homeColor ? ` style="color:${homeColor}"` : '';
+  const awayAbbrStyle = awayColor ? ` style="color:${awayColor}"` : '';
+  const homeSelStyle  = pickedHome && homeColor ? ` style="border-color:${homeColor};background:${homeColor}26;"` : '';
+  const awaySelStyle  = pickedAway && awayColor ? ` style="border-color:${awayColor};background:${awayColor}26;"` : '';
+
+  const kickoff = game.kickoffTime
+    ? new Date(game.kickoffTime).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})
+    : '';
+
+  card.className = `game-card${locked?' locked':''}${pickedHome?' picked-home':pickedAway?' picked-away':''}`;
+  card.innerHTML = `
+    <div class="game-meta">
+      <span>${kickoff}</span>
+      ${locked ? '<span class="lock-label">🔒 Locked</span>' : ''}
+    </div>
+    <div class="matchup">
+      <button class="team-btn${pickedAway?' selected':''}"${awaySelStyle} ${locked?'disabled':''} data-tc="${awayColor||''}" onclick="selectTeam('${game.gameId}','${game.awayTeam}',this)">
+        <span class="team-abbr"${awayAbbrStyle}>${awayAbbr}</span>
+        <span class="team-spread">${fmtSpread(awaySpread)}</span>
+      </button>
+      <span class="vs-label">@</span>
+      <button class="team-btn${pickedHome?' selected':''}"${homeSelStyle} ${locked?'disabled':''} data-tc="${homeColor||''}" onclick="selectTeam('${game.gameId}','${game.homeTeam}',this)">
+        <span class="team-abbr"${homeAbbrStyle}>${homeAbbr}</span>
+        <span class="team-spread">${fmtSpread(homeSpread)}</span>
+      </button>
+    </div>
+    <div class="dd-row">
+      <button class="dd-toggle${isDD?' active':''}" ${!sel||locked?'disabled':''} id="dd-${game.gameId}" onclick="toggleDD('${game.gameId}')">
+        <span class="flame">🔥</span> Double Down
+      </button>
+    </div>`;
+  return card;
+}
+
+function selectTeam(gameId, team, btn) {
+  const card  = btn.closest('.game-card');
+  const ddBtn = document.getElementById('dd-' + gameId);
+
+  // Deselect if clicking the already-selected team
+  if (myPickSelections[gameId] && myPickSelections[gameId].pickedTeam === team) {
+    delete myPickSelections[gameId];
+    card.querySelectorAll('.team-btn').forEach(b => {
+      b.classList.remove('selected');
+      b.style.borderColor = '';
+      b.style.background  = '';
+    });
+    card.className = card.className.replace(' picked-home','').replace(' picked-away','');
+    if (ddBtn) { ddBtn.disabled = true; ddBtn.classList.remove('active'); }
+    updatePickBar();
+    return;
+  }
+
+  // Block new pick if already at 5 and this game has no pick yet
+  const currentCount = Object.values(myPickSelections).filter(v => v && v.pickedTeam).length;
+  if (!myPickSelections[gameId] && currentCount >= 5) {
+    showToast('Already at 5 picks — deselect one first', 'error');
+    return;
+  }
+
+  if (!myPickSelections[gameId]) myPickSelections[gameId] = { pickedTeam: team, isDD: false };
+  else myPickSelections[gameId].pickedTeam = team;
+
+  // Re-render just this card's buttons, applying team color to the selected one
+  card.querySelectorAll('.team-btn').forEach(b => {
+    b.classList.remove('selected');
+    b.style.borderColor = '';
+    b.style.background  = '';
+  });
+  btn.classList.add('selected');
+  const _tc = btn.getAttribute('data-tc');
+  if (_tc) { btn.style.borderColor = _tc; btn.style.background = _tc + '26'; }
+
+  // Enable DD toggle
+  if (ddBtn) ddBtn.disabled = false;
+
+  card.className = card.className.replace(' picked-home','').replace(' picked-away','');
+  updatePickBar();
+}
+
+function renderSubmittedPicks(games, myPicks) {
+  const gameMap = {};
+  games.forEach(g => gameMap[g.gameId] = g);
+
+  const el = document.getElementById('submitted-picks-list');
+  el.innerHTML = myPicks.map(p => {
+    const game = gameMap[p.gameId];
+    if (!game) return '';
+    const isHome = p.pickedTeam === game.homeTeam;
+    const spread = isHome ? game.homeSpread : -game.homeSpread;
+    const sign   = spread > 0 ? '+' : '';
+    return `<div class="sub-row">
+      <div>
+        <strong>${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</strong>
+        <div style="font-size:.78rem;color:var(--muted)">
+          Pick: <strong style="color:var(--text)">${abbrTeam(p.pickedTeam)} ${sign}${spread}</strong>
+          ${p.isDD ? ' <span class="badge badge-DD">DD</span>' : ''}
+        </div>
+      </div>
+      ${game.isLocked ? '<span style="font-size:.72rem;color:var(--red)">🔒 Locked</span>' : '<span style="font-size:.72rem;color:var(--green)">Unlocked</span>'}
+    </div>`;
+  }).join('');
+
+  // Only show Edit button if at least one picked game is still unlocked
+  const hasUnlocked = myPicks.some(p => gameMap[p.gameId] && !gameMap[p.gameId].isLocked);
+  document.getElementById('edit-picks-btn').style.display = hasUnlocked ? '' : 'none';
+}
+
+function editPicks() {
+  const { games, myPicks } = STATE.weekData;
+  document.getElementById('submitted-area').classList.add('hidden');
+  document.getElementById('picking-area').classList.remove('hidden');
+  myPickSelections = {};
+  for (const p of myPicks) myPickSelections[p.gameId] = { pickedTeam: p.pickedTeam, isDD: p.isDD };
+  renderGamesList(games, myPicks);
+}
+
+function toggleDD(gameId) {
+  if (!myPickSelections[gameId] || !myPickSelections[gameId].pickedTeam) return;
+  const wasDD = myPickSelections[gameId].isDD;
+
+  // Turn off all others
+  Object.keys(myPickSelections).forEach(gid => {
+    if (myPickSelections[gid]) myPickSelections[gid].isDD = false;
+    const btn = document.getElementById('dd-' + gid);
+    if (btn) btn.classList.remove('active');
+  });
+
+  // Toggle this one on (unless it was already on)
+  if (!wasDD) {
+    myPickSelections[gameId].isDD = true;
+    const btn = document.getElementById('dd-' + gameId);
+    if (btn) btn.classList.add('active');
+  }
+
+  updatePickBar();
+}
+
+function updatePickBar() {
+  const picks = Object.values(myPickSelections).filter(p => p && p.pickedTeam);
+  const ddPicks = picks.filter(p => p.isDD);
+  const n = picks.length;
+  const hasDD = ddPicks.length === 1;
+
+  document.getElementById('pick-count-n').textContent = n;
+  const ddEl = document.getElementById('dd-status');
+  if (hasDD) {
+    ddEl.textContent = '🔥 Double Down set';
+    ddEl.className = 'dd-count ok';
+  } else if (ddPicks.length > 1) {
+    ddEl.textContent = 'Only 1 Double Down allowed';
+    ddEl.className = 'dd-count';
+  } else {
+    ddEl.textContent = 'No Double Down selected yet';
+    ddEl.className = 'dd-count';
+  }
+
+  const submitBtn = document.getElementById('submit-btn');
+  submitBtn.disabled = !(n === 5 && hasDD);
+}
+
+function submitPicks() {
+  const picks = Object.entries(myPickSelections)
+    .filter(([, v]) => v && v.pickedTeam)
+    .map(([gameId, v]) => ({ gameId, pickedTeam: v.pickedTeam, isDD: v.isDD }));
+
+  if (picks.length !== 5) { showToast('Select exactly 5 games', 'error'); return; }
+  if (picks.filter(p => p.isDD).length !== 1) { showToast('Set exactly 1 Double Down', 'error'); return; }
+
+  document.getElementById('submit-btn').disabled = true;
+  document.getElementById('submit-btn').textContent = 'Submitting…';
+
+  gsr(res => {
+      showToast('Picks submitted! 🏈', 'success');
+      document.getElementById('submit-btn').textContent = 'Submit Picks';
+      loadAppState();
+    }, err => {
+      showToast(err.message || 'Error submitting picks', 'error');
+      document.getElementById('submit-btn').disabled = false;
+      document.getElementById('submit-btn').textContent = 'Submit Picks';
+    }).submitPicks(picks);
+}
+
+// ─── ALL PICKS GRID ─────────────────────────────────────────────────
+function renderAllPicksGrid(allPicks, games) {
+  const el = document.getElementById('all-picks-grid');
+  const gameMap = {};
+  games.forEach(g => gameMap[g.gameId] = g);
+
+  const players = [...new Set(allPicks.map(p => p.playerEmail))];
+  const playerNames = {};
+  (STATE.weekData.subStatus || []).forEach(s => playerNames[s.email] = s.displayName);
+
+  let html = '<table><thead><tr><th>Game</th>';
+  players.forEach(e => html += `<th>${playerNames[e] || e}</th>`);
+  html += '</tr></thead><tbody>';
+
+  games.forEach(game => {
+    html += `<tr><td><strong>${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</strong></td>`;
+    players.forEach(email => {
+      const pick = allPicks.find(p => p.playerEmail === email && p.gameId === game.gameId);
+      if (!pick) { html += '<td>—</td>'; return; }
+      const isHome = pick.pickedTeam === game.homeTeam;
+      const spread = isHome ? game.homeSpread : -game.homeSpread;
+      const sign   = spread > 0 ? '+' : '';
+      html += `<td><div class="pick-cell">
+        <span class="pick-team">${abbrTeam(pick.pickedTeam)} ${sign}${spread}</span>
+        ${pick.isDD ? '<span class="pick-dd-badge">🔥 DD</span>' : ''}
+      </div></td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ─── RESULTS ────────────────────────────────────────────────────────
+function renderWeekResults(results, games, myPicks) {
+  const gameMap = {};
+  games.forEach(g => gameMap[g.gameId] = g);
+
+  // Weekly standings
+  const standingsEl = document.getElementById('week-standings-list');
+  const ws = STATE.weekData.weekStandings || [];
+  standingsEl.innerHTML = ws.map((s, i) => `
+    <div class="standings-row">
+      <div class="standings-rank">${i+1}</div>
+      <div class="standings-name">${s.displayName}</div>
+      <div class="standings-record">${s.record}</div>
+      <div class="standings-dd" title="Double Down record">🔥 ${s.DDW||0}-${s.DDL||0}</div>
+      <div class="standings-pct">${s.percentage}%</div>
+    </div>`).join('');
+
+  // My pick-by-pick results
+  const myResults = results.filter(r => r.playerEmail === STATE.user.email);
+  const detailEl  = document.getElementById('results-detail');
+  if (!myResults.length) { detailEl.innerHTML = '<div style="color:var(--muted);font-size:.85rem">No results yet.</div>'; return; }
+
+  let html = `<table class="results-table">
+    <thead><tr><th>Game</th><th>Pick</th><th>Result</th></tr></thead><tbody>`;
+  myResults.forEach(r => {
+    const game = gameMap[r.gameId];
+    const matchup = game ? `${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}` : r.gameId;
+    const isHome  = game && r.pickedTeam === game.homeTeam;
+    const spread  = game ? (isHome ? game.homeSpread : -game.homeSpread) : '';
+    const sign    = spread > 0 ? '+' : '';
+    const score   = game && game.homeScore !== null ? `${game.awayScore}-${game.homeScore}` : '';
+    html += `<tr>
+      <td>${matchup} <span style="color:var(--muted);font-size:.75rem">${score}</span></td>
+      <td>${abbrTeam(r.pickedTeam)} ${sign}${spread}${r.isDD?'<span class="badge badge-DD">DD</span>':''}</td>
+      <td><span class="badge badge-${r.result}">${r.result==='P'?'PUSH':r.result==='C'?'CANCEL':r.result}</span>
+          ${r.result==='W'&&r.isDD?'<small style="color:var(--orange)"> +2</small>':''}</td>
+    </tr>`;
+  });
+  html += '</tbody></table>';
+  detailEl.innerHTML = html;
+}
+
+// ─── STANDINGS VIEW ────────────────────────────────────────────────
+function renderStandingsView() {
+  showView('standings');
+  document.getElementById('season-label').textContent = STATE.season;
+  const el = document.getElementById('season-standings-list');
+  el.innerHTML = (STATE.seasonStandings || []).map((s, i) => `
+    <div class="standings-row">
+      <div class="standings-rank">${i===0?'🏆':i+1}</div>
+      <div class="standings-name">${s.displayName}</div>
+      <div class="standings-record">${s.record}</div>
+      <div class="standings-dd" title="Double Down record">🔥 ${s.DDW||0}-${s.DDL||0}</div>
+      <div class="standings-pct">${s.percentage}%</div>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:.85rem">No results yet — check back after Week 1.</div>';
+}
+
+// ─── HISTORY VIEW ──────────────────────────────────────────────────
+function renderHistoryView() {
+  showView('history');
+  showHistoryList();
+}
+
+function showHistoryList() {
+  document.getElementById('history-week-list').classList.remove('hidden');
+  document.getElementById('history-detail').classList.add('hidden');
+
+  const closedWeeks = (STATE.allWeeks || []).filter(w => w.status === 'closed');
+  const el = document.getElementById('week-list-items');
+  if (!closedWeeks.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:.85rem">No completed weeks yet.</div>';
+    return;
+  }
+  el.innerHTML = closedWeeks.map(w => `
+    <div class="week-list-item" onclick="loadWeekHistory('${w.weekId}','${w.weekNum}',${w.type==='playoffs'})">
+      <div>
+        <div class="week-label">${w.type==='playoffs'?'Playoffs ':''}Week ${w.weekNum}</div>
+        <div class="week-meta">Closed · ${w.notes || ''}</div>
+      </div>
+      <span style="color:var(--muted);font-size:.85rem">→</span>
+    </div>`).join('');
+}
+
+function loadWeekHistory(weekId, weekNum, isPlayoffs) {
+  gsr(data => {
+      document.getElementById('history-week-list').classList.add('hidden');
+      document.getElementById('history-detail').classList.remove('hidden');
+      document.getElementById('hist-week-label').textContent = `${isPlayoffs?'Playoffs ':''}Week ${weekNum}`;
+
+      // Standings
+      document.getElementById('hist-standings').innerHTML = (data.standings||[]).map((s,i)=>`
+        <div class="standings-row">
+          <div class="standings-rank">${i+1}</div>
+          <div class="standings-name">${s.displayName}</div>
+          <div class="standings-record">${s.record}</div>
+          <div class="standings-dd" title="Double Down record">🔥 ${s.DDW||0}-${s.DDL||0}</div>
+          <div class="standings-pct">${s.percentage}%</div>
+        </div>`).join('');
+
+      // Picks grid
+      renderPicksGridInto('hist-picks-grid', data.picks, data.games, data.results);
+    }).getWeekHistory(weekId);
+}
+
+function renderPicksGridInto(elId, allPicks, games, results) {
+  const el = document.getElementById(elId);
+  const gameMap   = {};
+  games.forEach(g => gameMap[g.gameId] = g);
+  const resultMap = {}; // playerEmail+gameId → result
+  (results||[]).forEach(r => resultMap[r.playerEmail+'_'+r.gameId] = r);
+
+  const playerEmails = [...new Set(allPicks.map(p => p.playerEmail))];
+  const playerNames  = {};
+  (STATE.weekData?.subStatus||[]).forEach(s => playerNames[s.email] = s.displayName);
+  // Fallback: use email prefix
+  playerEmails.forEach(e => { if (!playerNames[e]) playerNames[e] = e.split('@')[0]; });
+
+  let html = '<table><thead><tr><th>Game</th>';
+  playerEmails.forEach(e => html += `<th>${playerNames[e]}</th>`);
+  html += '</tr></thead><tbody>';
+
+  games.forEach(game => {
+    html += `<tr><td><strong>${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</strong>`;
+    if (game.homeScore !== null && game.awayScore !== null) {
+      html += `<br><span style="font-size:.7rem;color:var(--muted)">${game.awayScore}-${game.homeScore}</span>`;
+    }
+    html += '</td>';
+    playerEmails.forEach(email => {
+      const pick = allPicks.find(p => p.playerEmail === email && p.gameId === game.gameId);
+      const res  = results && resultMap[email+'_'+game.gameId];
+      if (!pick) { html += '<td>—</td>'; return; }
+      const isHome = pick.pickedTeam === game.homeTeam;
+      const spread = isHome ? game.homeSpread : -game.homeSpread;
+      const sign   = spread > 0 ? '+' : '';
+      const badge  = res ? `<span class="badge badge-${res.result}">${res.result==='P'?'PUSH':res.result}</span>` : '';
+      html += `<td><div class="pick-cell">
+        <span class="pick-team">${abbrTeam(pick.pickedTeam)} ${sign}${spread}</span>
+        ${pick.isDD ? '<span class="pick-dd-badge">🔥 DD</span>' : ''}
+        ${badge}
+      </div></td>`;
+    });
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  el.innerHTML = html;
+}
+
+// ─── ADMIN VIEW ─────────────────────────────────────────────────────
+function renderAdminView() {
+  if (!STATE.user?.isAdmin) { switchView('picks'); return; }
+  showView('admin');
+
+  gsr(renderAdminDashboard).adminGetDashboard();
+}
+
+function renderAdminDashboard(data) {
+  if (!data.week) {
+    document.getElementById('admin-week-status').textContent = 'No active week.';
+    document.getElementById('admin-sub-section').classList.add('hidden');
+    document.getElementById('admin-grade-section').classList.add('hidden');
+    document.getElementById('admin-copy-section').classList.add('hidden');
+    buildAdminActions(null);
+    populateOverrideSelectors(null, []);
+    // Still load player list for PIN management even when no active week
+    callGAS('getPlayerList').then(players => {
+      populatePinList(players.map(p => ({ email: p.email, displayName: p.displayName })));
+    }).catch(() => {});
+    return;
+  }
+
+  const { week, games, subStatus, pastDeadline, missing, allPicksIn, gradingStatus } = data;
+  const typeLabel = week.type === 'playoffs' ? 'Playoffs ' : (week.type === 'test' ? '🧪 Test ' : '');
+  document.getElementById('admin-week-status').innerHTML =
+    `<strong>${typeLabel}Week ${week.weekNum}</strong> · Status: <span style="color:var(--orange)">${week.status}</span> · `+
+    `${games.length} games · Deadline: ${week.deadline ? new Date(week.deadline).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) : 'TBD'}` +
+    (pastDeadline && missing.length ? ` <span style="color:var(--red)">⚠ Missing: ${missing.join(', ')}</span>` : '');
+
+  buildAdminActions(data);
+
+  // Submission status
+  document.getElementById('admin-sub-section').classList.remove('hidden');
+  const subEl = document.getElementById('admin-sub-status');
+  subEl.innerHTML = subStatus.map(s => `
+    <div class="sub-row">
+      <div>
+        <strong>${s.displayName}</strong>
+        <div class="pick-review">${s.pickCount}/5 picks · DD: ${s.hasDD?'✓':'—'}</div>
+      </div>
+      <span class="sub-pill ${s.submitted?'done':'waiting'}">${s.submitted?'Submitted':'Pending'}</span>
+    </div>`).join('');
+
+  // Grade section
+  if (gradingStatus) {
+    document.getElementById('admin-grade-section').classList.remove('hidden');
+    document.getElementById('admin-grade-preview').innerHTML =
+      `<div style="font-size:.82rem;color:var(--muted)">${gradingStatus.gradedCount}/${gradingStatus.totalGames} games graded${gradingStatus.allGraded?' · All graded ✓':''}</div>`;
+  } else {
+    document.getElementById('admin-grade-section').classList.add('hidden');
+  }
+
+  // Copy section (once revealed)
+  if (allPicksIn || week.status === 'closed') {
+    document.getElementById('admin-copy-section').classList.remove('hidden');
+  }
+
+  // Games list (read-only summary)
+  const gamesEl = document.getElementById('admin-games-list');
+  gamesEl.innerHTML = games.map(g => {
+    const hs = parseFloat(g.homeSpread);
+    const sign = hs > 0 ? '+' : '';
+    const scoreStr = g.homeScore != null && g.homeScore !== '' ? ` · Final: ${g.awayScore}-${g.homeScore}` : '';
+    const statusStr = g.status === 'cancelled' ? ' · <span style="color:var(--red)">Cancelled</span>' : '';
+    return `<div class="sub-row">
+      <div>
+        <strong>${abbrTeam(g.awayTeam)} @ ${abbrTeam(g.homeTeam)}</strong>
+        <div style="font-size:.75rem;color:var(--muted)">${abbrTeam(g.homeTeam)} ${sign}${hs}${scoreStr}${statusStr}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  populateOverrideSelectors(week, games);
+  populatePinList(data.subStatus || []);
+}
+
+function populatePinList(subStatus) {
+  const el = document.getElementById('admin-pin-list');
+  if (!el || !subStatus.length) return;
+  el.innerHTML = subStatus.map(s => `
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem">
+      <span style="flex:1;font-weight:600;font-size:.9rem">${s.displayName}</span>
+      <input type="tel" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+        placeholder="PIN"
+        data-email="${s.email}"
+        style="width:80px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;
+               color:var(--text);font-size:.9rem;padding:.35rem .5rem;text-align:center;outline:none"
+        class="admin-pin-input">
+    </div>`).join('');
+}
+
+function adminSavePins() {
+  const inputs = document.querySelectorAll('.admin-pin-input');
+  const pins = [];
+  let hasError = false;
+  inputs.forEach(inp => {
+    const pin = inp.value.trim();
+    if (!pin) return; // skip blanks
+    if (!/^\d{4}$/.test(pin)) { showToast(`PINs must be exactly 4 digits`, 'error'); hasError = true; return; }
+    pins.push({ email: inp.getAttribute('data-email'), pin });
+  });
+  if (hasError || !pins.length) { if (!hasError) showToast('Enter at least one PIN to save', 'error'); return; }
+  gsr(r => { showToast(`Saved ${r.updated} PIN(s)!`, 'success'); }, onError)
+    .adminSetPins(pins);
+}
+
+function buildAdminActions(data) {
+  const el = document.getElementById('admin-actions-grid');
+  if (!data || !data.week) {
+    el.innerHTML = `<div class="admin-action">
+      <h4>Pull Odds & Open Week</h4>
+      <p>Click "Open Week" below to pull this week's NFL lines from The Odds API.</p>
+    </div>`;
+    return;
+  }
+  const { week, allPicksIn, gradingStatus } = data;
+  el.innerHTML = `
+    <div class="admin-action">
+      <h4>Picks${allPicksIn?' ✓ Revealed':''}</h4>
+      <p>${allPicksIn?'All 5 players submitted.':'Waiting for players to submit.'}</p>
+    </div>
+    <div class="admin-action">
+      <h4>Scoring</h4>
+      <p>${gradingStatus?(gradingStatus.allGraded?'All graded.':gradingStatus.gradedCount+'/'+gradingStatus.totalGames+' graded.'):'Not started.'}</p>
+      ${week.status!=='closed'?'<button class="btn btn-primary btn-sm" onclick="adminGradeWeek()">Grade Week</button>':'<span style="color:var(--green);font-size:.82rem">✓ Published</span>'}
+    </div>`;
+}
+
+function populateOverrideSelectors(week, games) {
+  // Player selector
+  const playerSel = document.getElementById('override-player');
+  playerSel.innerHTML = (STATE.seasonStandings || []).map(s =>
+    `<option value="${s.email}">${s.displayName}</option>`).join('');
+
+  // Game selector + pick selector
+  const gameSel = document.getElementById('override-game');
+  gameSel.innerHTML = games.map(g =>
+    `<option value="${g.gameId}">${abbrTeam(g.awayTeam)} @ ${abbrTeam(g.homeTeam)}</option>`).join('');
+  gameSel.onchange = () => updatePickOptions(games);
+  updatePickOptions(games);
+}
+
+function updatePickOptions(games) {
+  const gameId  = document.getElementById('override-game').value;
+  const game    = games.find(g => g.gameId === gameId);
+  const pickSel = document.getElementById('override-pick');
+  if (!game) { pickSel.innerHTML = ''; return; }
+  const hs = parseFloat(game.homeSpread);
+  const as = -hs;
+  const fmtS = s => (s > 0 ? '+' : '') + s;
+  pickSel.innerHTML = `
+    <option value="${game.awayTeam}">${abbrTeam(game.awayTeam)} ${fmtS(as)}</option>
+    <option value="${game.homeTeam}">${abbrTeam(game.homeTeam)} ${fmtS(hs)}</option>`;
+}
+
+// ─── Admin actions ──────────────────────────────────────────────────
+function adminOpenWeek() {
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Opening…';
+  const weekNum  = parseInt(document.getElementById('new-week-num').value);
+  const type     = document.getElementById('new-week-type').value;
+  const dlInput  = document.getElementById('new-week-deadline').value;
+  const notes    = document.getElementById('new-week-notes').value;
+  const deadline = dlInput ? new Date(dlInput).toISOString() : null;
+
+  if (type === 'test') {
+    gsr(r => { showToast(`Test week ${weekNum} opened!`, 'success'); loadAppState(); renderAdminView(); })
+      .adminOpenTestWeek(weekNum, testGames);
+  } else {
+    showToast('Pulling odds…', 'success');
+    gsr(r => {
+        if (r.oddsError) showToast(`Week opened but odds failed: ${r.oddsError}`, 'error');
+        else showToast(`Week ${weekNum} opened! ${r.gamesAdded} games loaded.`, 'success');
+        loadAppState(); renderAdminView();
+      }, err => { btn.disabled = false; btn.textContent = '🏈 Open Week & Pull Odds'; onError(err); })
+      .adminOpenWeek(weekNum, type, deadline, notes);
+  }
+}
+
+document.getElementById('new-week-type').addEventListener('change', function() {
+  const testSection = document.getElementById('test-games-section');
+  testSection.classList.toggle('hidden', this.value !== 'test');
+});
+
+function addTestGame() {
+  testGames.push({ homeTeam: '', awayTeam: '', homeSpread: 0, kickoffTime: new Date().toISOString() });
+  renderTestGames();
+}
+
+function renderTestGames() {
+  const el = document.getElementById('test-games-list');
+  el.innerHTML = testGames.map((g, i) => `
+    <div style="display:grid;grid-template-columns:1fr 1fr auto auto;gap:.4rem;margin-bottom:.4rem;align-items:center">
+      <input class="form-input" placeholder="Away team" value="${g.awayTeam}" oninput="testGames[${i}].awayTeam=this.value">
+      <input class="form-input" placeholder="Home team" value="${g.homeTeam}" oninput="testGames[${i}].homeTeam=this.value">
+      <input class="form-input" placeholder="Home spread" type="number" step="0.5" value="${g.homeSpread}" oninput="testGames[${i}].homeSpread=parseFloat(this.value)" style="width:80px">
+      <button class="btn btn-danger btn-sm" onclick="testGames.splice(${i},1);renderTestGames()">✕</button>
+    </div>`).join('');
+}
+
+function adminSetPick() {
+  const week      = STATE.weekData?.week;
+  if (!week) { showToast('No active week', 'error'); return; }
+  const playerEmail = document.getElementById('override-player').value;
+  const gameId      = document.getElementById('override-game').value;
+  const pickedTeam  = document.getElementById('override-pick').value;
+  const isDD        = document.getElementById('override-dd').checked;
+
+  gsr(r => { showToast('Pick saved!', 'success'); renderAdminView(); loadAppState(); })
+    .adminSetPick(week.weekId, playerEmail, gameId, pickedTeam, isDD);
+}
+
+function adminSetScore(gameId) {
+  const homeScore = document.getElementById('hs-' + gameId)?.value;
+  const awayScore = document.getElementById('as-' + gameId)?.value;
+  if (homeScore === '' || awayScore === '') { showToast('Enter both scores', 'error'); return; }
+  gsr(() => { showToast('Score saved!', 'success'); renderAdminView(); })
+    .adminSetGameResult(gameId, parseInt(homeScore), parseInt(awayScore), 'final');
+}
+
+function adminCancelGame(gameId) {
+  if (!confirm('Mark this game as cancelled? Players get no points for it.')) return;
+  gsr(() => { showToast('Game cancelled', 'success'); renderAdminView(); })
+    .adminCancelGame(gameId);
+}
+
+function adminPullScores() {
+  const week = STATE.weekData?.week;
+  if (!week) { showToast('No active week', 'error'); return; }
+  showToast('Pulling scores…', 'success');
+  gsr(r => { showToast(`Updated ${r.updated} games`, 'success'); renderAdminView(); })
+    .adminPullScores(week.weekId);
+}
+
+function adminDeleteWeek() {
+  const week = STATE.weekData?.week;
+  if (!week) { showToast('No active week', 'error'); return; }
+  if (!confirm(`Delete Week ${week.weekNum} and ALL its games, picks, and results? This cannot be undone.`)) return;
+  gsr(() => { showToast('Week deleted.', 'success'); loadAppState(); })
+    .adminDeleteWeek(week.weekId);
+}
+
+function adminFillTestPicks() {
+  const week = STATE.weekData?.week;
+  if (!week) { showToast('No active week', 'error'); return; }
+  if (week.type !== 'test') { showToast('Only works on test weeks', 'error'); return; }
+  gsr(r => {
+    showToast(`Filled picks for ${r.filled} player(s)!`, 'success');
+    loadAppState();
+    renderAdminView();
+  }).adminFillTestPicks(week.weekId);
+}
+
+function adminFillTestScores() {
+  const week = STATE.weekData?.week;
+  if (!week) { showToast('No active week', 'error'); return; }
+  if (week.type !== 'test') { showToast('Only works on test weeks', 'error'); return; }
+  gsr(r => { showToast(`Filled scores for ${r.updated} games!`, 'success'); renderAdminView(); })
+    .adminFillTestScores(week.weekId);
+}
+
+function adminGradeWeek() {
+  const week = STATE.weekData?.week;
+  if (!week) { showToast('No active week', 'error'); return; }
+  gsr(r => { showToast('Graded! Review results below.', 'success'); renderAdminView(); })
+    .adminGradeWeek(week.weekId);
+}
+
+function adminPublishResults() {
+  const week = STATE.weekData?.week;
+  if (!week) return;
+  if (!confirm('Publish results? This marks the week as closed and makes results visible to all players.')) return;
+  gsr(r => { showToast('Results published! 🏆', 'success'); loadAppState(); renderAdminView(); })
+    .adminPublishResults(week.weekId);
+}
+
+function getCopyText(type) {
+  const week = STATE.weekData?.week;
+  if (!week) return;
+  gsr(r => {
+      const box = document.getElementById('copy-box');
+      const btn = document.getElementById('copy-btn');
+      box.textContent = r.text;
+      box.style.display = 'block';
+      btn.style.display = 'inline-flex';
+    }).adminGetSummaryText(week.weekId, type);
+}
+
+function copyText() {
+  const text = document.getElementById('copy-box').textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('Copied!', 'success'));
+}
+
+// ─── Poll ──────────────────────────────────────────────────────────
+function startPollIfNeeded(weekId) {
+  if (pollInterval) clearInterval(pollInterval);
+  if (!STATE.weekData?.allPicksIn && STATE.weekData?.week?.status !== 'closed') {
+    pollInterval = setInterval(() => pollReveal(weekId), 30000);
+  }
+}
+
+function pollReveal(weekId) {
+  gsr(res => {
+      if (res.allPicksIn && !STATE.weekData?.allPicksIn) {
+        clearInterval(pollInterval);
+        loadAppState();
+      } else {
+        renderSubPills(res.subStatus);
+      }
+    }, () => {}, true) // silent — background poll
+    .pollPickReveal(weekId);
+}
+
+// ─── Helpers ───────────────────────────────────────────────────────
+const ABBR = {
+  'Arizona Cardinals':'ARI','Atlanta Falcons':'ATL','Baltimore Ravens':'BAL',
+  'Buffalo Bills':'BUF','Carolina Panthers':'CAR','Chicago Bears':'CHI',
+  'Cincinnati Bengals':'CIN','Cleveland Browns':'CLE','Dallas Cowboys':'DAL',
+  'Denver Broncos':'DEN','Detroit Lions':'DET','Green Bay Packers':'GB',
+  'Houston Texans':'HOU','Indianapolis Colts':'IND','Jacksonville Jaguars':'JAX',
+  'Kansas City Chiefs':'KC','Las Vegas Raiders':'LV','Los Angeles Chargers':'LAC',
+  'Los Angeles Rams':'LAR','Miami Dolphins':'MIA','Minnesota Vikings':'MIN',
+  'New England Patriots':'NE','New Orleans Saints':'NO','New York Giants':'NYG',
+  'New York Jets':'NYJ','Philadelphia Eagles':'PHI','Pittsburgh Steelers':'PIT',
+  'San Francisco 49ers':'SF','Seattle Seahawks':'SEA','Tampa Bay Buccaneers':'TB',
+  'Tennessee Titans':'TEN','Washington Commanders':'WSH',
+};
+function abbrTeam(name) { return ABBR[name] || name; }
+
+const TEAM_COLORS = {
+  ARI:'#e63950', ATL:'#cc2035', BAL:'#8a6fe8', BUF:'#4a79d8',
+  CAR:'#00a3e0', CHI:'#e8541a', CIN:'#fb6030', CLE:'#ff6030',
+  DAL:'#7cb4e8', DEN:'#fb6030', DET:'#009ee6', GB:'#ffb612',
+  HOU:'#cc2035', IND:'#4a79d8', JAX:'#d7a22a', KC:'#e62045',
+  LV:'#c0c7cb',  LAC:'#0099e6', LAR:'#ffa300', MIA:'#00b5c0',
+  MIN:'#7a4fc8', NE:'#cc2035',  NO:'#c9a84c',  NYG:'#cc2035',
+  NYJ:'#1e9e6f', PHI:'#00957a', PIT:'#ffb612', SF:'#cc0000',
+  SEA:'#5cb821', TB:'#e62020',  TEN:'#4b92db', WSH:'#c9a84c',
+};
+function teamColor(name) { return TEAM_COLORS[ABBR[name] || name] || null; }
+
+function showToast(msg, type) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type||''}`;
+  setTimeout(() => el.className = '', 3000);
+}
+
+function onError(err) {
+  showToast((err && err.message) || 'Something went wrong', 'error');
+  console.error(err);
+}
+</script>
+</body>
+</html>
