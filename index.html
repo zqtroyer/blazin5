@@ -856,9 +856,7 @@ function renderPicksView() {
   // Header
   const typeLabel = week.type === 'playoffs' ? 'Playoffs' : (week.type === 'test' ? '🧪 Test ' : '');
   document.getElementById('week-label-sm').textContent = `${typeLabel}Week ${week.weekNum}`;
-  document.getElementById('week-deadline').textContent = week.deadline
-    ? 'Saturday at Noon ET (picks lock 11:59 PM)'
-    : 'TBD';
+  document.getElementById('week-deadline').textContent = 'Saturday at Noon ET';
 
   // Submission pills
   renderSubPills(subStatus);
