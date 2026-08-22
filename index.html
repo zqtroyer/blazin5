@@ -460,12 +460,16 @@ select.form-input option{background:var(--surface)}
 
     <!-- ════ HISTORY VIEW ════ -->
     <div id="view-history" class="hidden">
-      <div id="history-week-list" class="card">
-        <div class="card-title">Past Weeks</div>
-        <div id="week-list-items"></div>
+      <!-- Current season week list -->
+      <div id="history-week-list">
+        <div class="card">
+          <div class="card-title">25/26 Season — Week Results</div>
+          <div id="week-list-items"></div>
+        </div>
       </div>
+      <!-- Week detail drill-down -->
       <div id="history-detail" class="hidden">
-        <button class="btn btn-secondary btn-sm" onclick="showHistoryList()" style="margin-bottom:.75rem">← Back to weeks</button>
+        <button class="btn btn-secondary btn-sm" onclick="showHistoryList()" style="margin-bottom:.75rem">← Back</button>
         <div class="card">
           <div class="card-title" id="hist-week-label">Week</div>
           <div id="hist-standings"></div>
@@ -474,6 +478,14 @@ select.form-input option{background:var(--surface)}
           <div class="card-title">All Picks</div>
           <div class="picks-grid" id="hist-picks-grid"></div>
         </div>
+      </div>
+      <!-- Past seasons (always visible below current season list) -->
+      <div id="history-past" style="margin-top:.5rem">
+        <div class="card">
+          <div class="card-title">All-Time Records <span style="font-size:.75rem;font-weight:400;color:var(--muted)">(thru 24/25)</span></div>
+          <div id="history-alltime"></div>
+        </div>
+        <div id="history-seasons"></div>
       </div>
     </div>
 
@@ -845,7 +857,7 @@ function renderPicksView() {
   const typeLabel = week.type === 'playoffs' ? 'Playoffs' : (week.type === 'test' ? '🧪 Test ' : '');
   document.getElementById('week-label-sm').textContent = `${typeLabel}Week ${week.weekNum}`;
   document.getElementById('week-deadline').textContent = week.deadline
-    ? new Date(week.deadline).toLocaleString('en-US', {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'})
+    ? 'Saturday at Noon ET (picks lock 11:59 PM)'
     : 'TBD';
 
   // Submission pills
@@ -1252,10 +1264,110 @@ function renderStandingsView() {
     </div>`).join('') || '<div style="color:var(--muted);font-size:.85rem">No results yet — check back after Week 1.</div>';
 }
 
+// ─── HISTORY DATA ──────────────────────────────────────────────────
+const SEASON_HISTORY = [
+  { season:'24/25', weeks:18, standings:[
+    {name:'Jeff Schimm',      W:72, L:34, T:1, pct:67.76},
+    {name:'Bennett Schimm',   W:59, L:43, T:2, pct:57.69},
+    {name:'Zachary Birkey',   W:55, L:47, T:1, pct:54.41},
+    {name:'Colin Cowherd',    W:28, L:34, T:2, pct:45.31},
+    {name:'Brennen Bollinger',W:40, L:57, T:2, pct:41.41},
+  ]},
+  { season:'23/24', weeks:18, standings:[
+    {name:'Jeff Schimm',      W:73, L:39, T:2, pct:64.91},
+    {name:'Bennett Schimm',   W:68, L:40, T:2, pct:62.73},
+    {name:'Zachary Birkey',   W:66, L:41, T:3, pct:61.36},
+    {name:'Colin Cowherd',    W:65, L:42, T:6, pct:60.18},
+    {name:'Brennen Bollinger',W:64, L:46, T:2, pct:58.04},
+  ]},
+  { season:'22/23', weeks:18, standings:[
+    {name:'Colin Cowherd',    W:55, L:36, T:2, pct:60.22},
+    {name:'Bennett Schimm',   W:58, L:41, T:4, pct:58.25},
+    {name:'Zachary Birkey',   W:53, L:43, T:4, pct:55.00},
+    {name:'Brennen Bollinger',W:51, L:46, T:4, pct:52.48},
+    {name:'Jeff Schimm',      W:47, L:48, T:2, pct:49.48},
+  ]},
+  { season:'21/22', weeks:18, standings:[
+    {name:'Brennen Bollinger',W:63, L:38, T:2, pct:62.14},
+    {name:'Bennett Schimm',   W:54, L:42, T:1, pct:56.06},
+    {name:'Colin Cowherd',    W:50, L:49, T:1, pct:50.50},
+    {name:'Jeff Schimm',      W:50, L:49, T:0, pct:50.50},
+    {name:'Zachary Birkey',   W:46, L:50, T:1, pct:47.90},
+  ]},
+  { season:'20/21', weeks:17, standings:[
+    {name:'Zachary Birkey',   W:62, L:32, T:3, pct:65.46},
+    {name:'Jeff Schimm',      W:43, L:44, T:3, pct:49.44},
+    {name:'Brennen Bollinger',W:42, L:45, T:3, pct:48.33},
+    {name:'Colin Cowherd',    W:39, L:42, T:2, pct:48.19},
+    {name:'Bennett Schimm',   W:40, L:46, T:3, pct:46.63},
+  ]},
+  { season:'19/20', weeks:16, standings:[
+    {name:'Jeff Schimm',      W:46, L:42, T:0, pct:52.30},
+    {name:'Zachary Birkey',   W:43, L:45, T:0, pct:48.90},
+    {name:'Colin Cowherd',    W:38, L:40, T:0, pct:48.70},
+    {name:'Bennett Schimm',   W:40, L:47, T:0, pct:46.00},
+    {name:'Brennen Bollinger',W:37, L:50, T:0, pct:43.60},
+  ]},
+];
+
+function _buildAllTime() {
+  const totals = {};
+  for (const s of SEASON_HISTORY) {
+    for (const p of s.standings) {
+      if (!totals[p.name]) totals[p.name] = {W:0, L:0, T:0};
+      totals[p.name].W += p.W;
+      totals[p.name].L += p.L;
+      totals[p.name].T += p.T;
+    }
+  }
+  return Object.entries(totals).map(([name, r]) => {
+    const total = r.W + r.L + r.T;
+    const pct = total > 0 ? ((r.W + 0.5 * r.T) / total * 100).toFixed(2) : '0.00';
+    return { name, ...r, pct: parseFloat(pct) };
+  }).sort((a,b) => b.pct - a.pct);
+}
+
+function renderPastSeasons() {
+  // All-time
+  const allTime = _buildAllTime();
+  document.getElementById('history-alltime').innerHTML = allTime.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:.75rem;padding:.5rem 0;${i>0?'border-top:1px solid var(--border)':''}">
+      <div style="font-size:1rem;font-weight:700;color:var(--muted);width:1.5rem;text-align:center">${i+1}</div>
+      <div style="flex:1;font-weight:600">${p.name}</div>
+      <div style="text-align:right">
+        <div style="font-size:.85rem;color:var(--text)">${p.W}-${p.L}${p.T>0?'-'+p.T:''}</div>
+        <div style="font-size:.8rem;color:var(--orange);font-weight:700">${p.pct}%</div>
+      </div>
+    </div>`).join('');
+
+  // Season cards
+  const medals = ['🥇','🥈','🥉'];
+  document.getElementById('history-seasons').innerHTML = SEASON_HISTORY.map(s => `
+    <div class="card" style="margin-top:.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer"
+           onclick="this.nextElementSibling.classList.toggle('hidden')">
+        <div class="card-title" style="margin-bottom:0">${s.season} Season</div>
+        <div style="font-size:.75rem;color:var(--muted)">${s.weeks} weeks ▾</div>
+      </div>
+      <div class="hidden" style="margin-top:.75rem">
+        ${s.standings.map((p,i) => `
+          <div style="display:flex;align-items:center;gap:.75rem;padding:.4rem 0;${i>0?'border-top:1px solid var(--border)':''}">
+            <div style="font-size:1rem;width:1.5rem;text-align:center">${medals[i]||''}</div>
+            <div style="flex:1;font-weight:600">${p.name}</div>
+            <div style="text-align:right">
+              <div style="font-size:.85rem">${p.W}-${p.L}${p.T>0?'-'+p.T:''}</div>
+              <div style="font-size:.8rem;color:var(--orange);font-weight:700">${p.pct}%</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
 // ─── HISTORY VIEW ──────────────────────────────────────────────────
 function renderHistoryView() {
   showView('history');
   showHistoryList();
+  renderPastSeasons();
 }
 
 function showHistoryList() {
@@ -1648,7 +1760,9 @@ function startPollIfNeeded(weekId) {
 
 function pollReveal(weekId) {
   gsr(res => {
-      if (res.allPicksIn && !STATE.weekData?.allPicksIn) {
+      const shouldReveal = res.allPicksIn && res.pastNoon;
+      const wasRevealed  = STATE.weekData?.allPicksIn && STATE.weekData?.pastNoon;
+      if (shouldReveal && !wasRevealed) {
         clearInterval(pollInterval);
         loadAppState();
       } else {
