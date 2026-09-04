@@ -317,6 +317,7 @@ select.form-input option{background:var(--surface)}
     <button class="nav-btn active" data-view="picks">My Picks</button>
     <button class="nav-btn" data-view="standings">Standings</button>
     <button class="nav-btn" data-view="history">History</button>
+    <button class="nav-btn" data-view="rules">Rules</button>
     <button class="nav-btn hidden" id="admin-nav-btn" data-view="admin">⚙ Admin</button>
   </nav>
 
@@ -495,6 +496,137 @@ select.form-input option{background:var(--surface)}
           <div id="history-alltime"></div>
         </div>
         <div id="history-seasons"></div>
+      </div>
+    </div>
+
+    <!-- ════ RULES VIEW ════ -->
+    <div id="view-rules" class="hidden">
+      <div class="card" style="max-width:680px;margin:0 auto;line-height:1.65">
+
+        <h2 style="margin-top:0;font-size:1.25rem">🏈 Blazin' 5 Pick'em — How It Works</h2>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">The Basics</h3>
+          <p style="margin:.25rem 0">Five players, each picking <strong>5 NFL games against the spread</strong> every week. One pick must be your <strong>Double Down</strong>. Picks are kept private until games lock — you don't see anyone else's picks until then.</p>
+          <p style="margin:.25rem 0">Buy-in is <strong>$50/person</strong>. End-of-season payouts: 🥇 1st place $200 &nbsp;·&nbsp; 🥈 2nd place $50.</p>
+        </section>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">When Games Open for Picks</h3>
+          <p style="margin:0 0 .5rem">Odds are pulled from <strong>DraftKings</strong> on a set schedule each week. A game only becomes available to pick <em>after</em> its odds have been published — you'll see it grayed out until then.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:.4rem .5rem;color:var(--muted);font-weight:500">Game day</th>
+                <th style="text-align:left;padding:.4rem .5rem;color:var(--muted);font-weight:500">Picks open</th>
+                <th style="text-align:left;padding:.4rem .5rem;color:var(--muted);font-weight:500">Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:.4rem .5rem">Wednesday</td>
+                <td style="padding:.4rem .5rem"><strong>Tuesday noon ET</strong></td>
+                <td style="padding:.4rem .5rem;color:var(--muted);font-size:.8rem">Week's first pull</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:.4rem .5rem">Thursday</td>
+                <td style="padding:.4rem .5rem"><strong>Wednesday noon ET</strong></td>
+                <td style="padding:.4rem .5rem;color:var(--muted);font-size:.8rem">Second pull</td>
+              </tr>
+              <tr>
+                <td style="padding:.4rem .5rem">Fri · Sat · Sun · Mon</td>
+                <td style="padding:.4rem .5rem"><strong>Friday noon ET</strong></td>
+                <td style="padding:.4rem .5rem;color:var(--muted);font-size:.8rem">Third pull (main slate)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin:.6rem 0 0;font-size:.82rem;color:var(--muted)">The spread shown is locked at the time of the pull. Line movement after that point doesn't affect your pick.</p>
+        </section>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">How the Week Flows</h3>
+          <p style="margin:.25rem 0">The pool of available games <strong>shrinks</strong> as the week goes on — once a game kicks off it locks, and locked games can't be picked. So if you wait until Sunday to submit, you'll only have the Sunday/Monday games left to choose from.</p>
+          <p style="margin:.25rem 0">You can change any pick freely right up until that game's kickoff.</p>
+        </section>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">🔒 Lock &amp; Reveal</h3>
+          <p style="margin:.25rem 0"><strong>Wed / Thu / Fri / Sat games (Bucket 1):</strong> each game locks and reveals at its own kickoff, independently of everyone else. Once it kicks off, everyone's pick for that game is visible.</p>
+          <p style="margin:.25rem 0"><strong>Sun / Mon games (Bucket 2):</strong> these reveal together — all at once — on whichever comes first:</p>
+          <ul style="margin:.25rem 0 .25rem 1.25rem;padding:0">
+            <li><strong>Saturday noon ET</strong>, if all 5 players have submitted all 5 picks by then</li>
+            <li>The moment the last outstanding pick comes in, if Saturday noon has passed</li>
+            <li><strong>Sunday 1:00 PM ET</strong> at the absolute latest, regardless of who's still missing</li>
+          </ul>
+          <p style="margin:.25rem 0;font-size:.82rem;color:var(--muted)">The Sunday 1pm backstop ensures Bucket 2 reveals before the early games kick off, no matter what.</p>
+        </section>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">🔥 Double Down</h3>
+          <p style="margin:.25rem 0">Every week you must mark exactly one pick as your <strong>Double Down</strong>.</p>
+          <ul style="margin:.25rem 0 .25rem 1.25rem;padding:0">
+            <li>DD win → <strong>+2 points</strong> (instead of +1)</li>
+            <li>DD loss → <strong>–1 point</strong> (same as a normal loss — not doubled)</li>
+            <li>DD push → <strong>+0.5 points</strong> (same as a normal push)</li>
+          </ul>
+          <p style="margin:.25rem 0;font-size:.82rem;color:var(--muted)">Pick your best game, not your boldest — a DD loss only stings the same as a regular one.</p>
+        </section>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">Scoring</h3>
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+            <thead>
+              <tr style="border-bottom:1px solid var(--border)">
+                <th style="text-align:left;padding:.4rem .5rem;color:var(--muted);font-weight:500">Result</th>
+                <th style="text-align:center;padding:.4rem .5rem;color:var(--muted);font-weight:500">W</th>
+                <th style="text-align:center;padding:.4rem .5rem;color:var(--muted);font-weight:500">L</th>
+                <th style="text-align:center;padding:.4rem .5rem;color:var(--muted);font-weight:500">T (push)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:.4rem .5rem">Regular pick win</td>
+                <td style="text-align:center;padding:.4rem .5rem">+1</td><td style="text-align:center">—</td><td style="text-align:center">—</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:.4rem .5rem">DD pick win</td>
+                <td style="text-align:center;padding:.4rem .5rem;color:var(--orange)"><strong>+2</strong></td><td style="text-align:center">—</td><td style="text-align:center">—</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:.4rem .5rem">Any loss (DD or not)</td>
+                <td style="text-align:center;padding:.4rem .5rem">—</td><td style="text-align:center">+1</td><td style="text-align:center">—</td>
+              </tr>
+              <tr style="border-bottom:1px solid var(--border)">
+                <td style="padding:.4rem .5rem">Push (tie game ATS)</td>
+                <td style="text-align:center;padding:.4rem .5rem">—</td><td style="text-align:center">—</td><td style="text-align:center;color:var(--muted)">+1 (= 0.5 pts)</td>
+              </tr>
+              <tr>
+                <td style="padding:.4rem .5rem">Empty pick at lock time</td>
+                <td colspan="3" style="text-align:center;padding:.4rem .5rem;color:var(--muted);font-size:.8rem">Not graded — excluded entirely (not a loss)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p style="margin:.6rem 0 0;font-size:.82rem;color:var(--muted)">Season standings are ranked by <strong>(W + 0.5×T) / (W + L + T)</strong>. A week can go 6-0 if all 5 picks win with one DD win.</p>
+        </section>
+
+        <section style="margin-bottom:1.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">📱 Add to Your iPhone Home Screen</h3>
+          <p style="margin:0 0 .5rem">Open the app in <strong>Safari</strong> (must be Safari, not Chrome), then:</p>
+          <ol style="margin:0 0 .5rem 1.25rem;padding:0;font-size:.9rem">
+            <li style="margin-bottom:.3rem">Tap the <strong>Share button</strong> at the bottom of the screen (the box with an arrow pointing up)</li>
+            <li style="margin-bottom:.3rem">Scroll down and tap <strong>"Add to Home Screen"</strong></li>
+            <li style="margin-bottom:.3rem">Name it <em>Blazin' 5</em> and tap <strong>Add</strong></li>
+          </ol>
+          <p style="margin:0;font-size:.82rem;color:var(--muted)">It'll appear on your home screen like a regular app. Tap it to open full-screen without the browser bar.</p>
+        </section>
+
+        <section style="margin-bottom:.5rem">
+          <h3 style="font-size:1rem;color:var(--orange);margin-bottom:.4rem">Season &amp; Payouts</h3>
+          <p style="margin:.25rem 0">The season runs <strong>Weeks 1–18 plus Playoffs Week 1</strong>. If two players are tied at the end of the season, it extends into Playoffs Week 2 as a tiebreaker.</p>
+          <p style="margin:.25rem 0">Players: Jeff S · Bennett S · Zach T · Zach B · Brennen B</p>
+          <p style="margin:.5rem 0 0"><strong>$250 total pot</strong> &nbsp;·&nbsp; 🥇 1st: $200 &nbsp;·&nbsp; 🥈 2nd: $50</p>
+        </section>
+
       </div>
     </div>
 
@@ -816,14 +948,15 @@ function switchView(view) {
 }
 
 function renderCurrentView() {
-  if (currentView === 'picks')     renderPicksView();
+  if (currentView === 'picks')          renderPicksView();
   else if (currentView === 'standings') renderStandingsView();
-  else if (currentView === 'history')  renderHistoryView();
-  else if (currentView === 'admin')    renderAdminView();
+  else if (currentView === 'history')   renderHistoryView();
+  else if (currentView === 'rules')     showView('rules');
+  else if (currentView === 'admin')     renderAdminView();
 }
 
 function showView(id) {
-  const views = ['loading','login','not-in-league','picks','standings','history','admin'];
+  const views = ['loading','login','not-in-league','picks','standings','history','rules','admin'];
   views.forEach(v => {
     const el = document.getElementById('view-' + v);
     if (el) el.classList.toggle('hidden', v !== id);
