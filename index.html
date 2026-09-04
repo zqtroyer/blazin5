@@ -410,7 +410,7 @@ select.form-input option{background:var(--surface)}
         <div id="picking-area">
           <div class="pick-bar">
             <div>
-              <div class="pick-count"><span class="n" id="pick-count-n">0</span>/5 picks selected</div>
+              <div class="pick-count"><span class="n" id="pick-count-n">0</span>/<span id="pick-count-max">5</span> picks selected</div>
               <div class="dd-count" id="dd-status">No Double Down selected yet</div>
             </div>
             <button class="btn btn-primary" id="submit-btn" disabled onclick="submitPicks()">
@@ -420,11 +420,19 @@ select.form-input option{background:var(--surface)}
           <div id="games-list"></div>
         </div>
 
-        <!-- After reveal: all picks visible -->
+        <!-- Partial reveal: some bucket-1 games have kicked off and revealed, bucket-2 still pending -->
+        <div id="partial-reveal-area" class="hidden">
+          <div class="card">
+            <div class="card-title">🔓 Revealed so far — <span id="partial-reveal-label"></span></div>
+            <div class="picks-grid" id="partial-picks-grid"></div>
+          </div>
+        </div>
+
+        <!-- After bucket-2 reveal: all picks visible -->
         <div id="revealed-area" class="hidden">
           <div class="reveal-banner">
             <h2>🔓 Picks Revealed!</h2>
-            <p>All 5 players have locked in. Here's how everyone picked this week.</p>
+            <p id="reveal-banner-msg">All 5 players have locked in. Here's how everyone picked this week.</p>
           </div>
           <div class="card">
             <div class="card-title">This Week's Picks</div>
@@ -851,7 +859,13 @@ function renderPicksView() {
   document.getElementById('no-week-msg').classList.add('hidden');
   document.getElementById('week-picks-area').classList.remove('hidden');
 
-  const { week, games, myPicks, allPicksIn, subStatus, results } = STATE.weekData;
+  const { week, games, myPicks, allPicksIn, pastNoon, pastBackstop, subStatus, results, picks } = STATE.weekData;
+
+  // Bucket-2 reveals when: all picks in + past Saturday noon, OR Sunday 1pm backstop
+  const b2Revealed   = (allPicksIn && pastNoon) || (pastBackstop || false);
+  // Partial reveal = some bucket-1 games have kicked off and revealed, but bucket-2 hasn't yet
+  const revealedGames = (games || []).filter(g => g.isRevealed);
+  const anyRevealed   = revealedGames.length > 0;
 
   // Header
   const typeLabel = week.type === 'playoffs' ? 'Playoffs' : (week.type === 'test' ? '🧪 Test ' : '');
@@ -865,9 +879,13 @@ function renderPicksView() {
   const weekClosed   = week.status === 'closed';
   const picking      = document.getElementById('picking-area');
   const revealed     = document.getElementById('revealed-area');
+  const partialArea  = document.getElementById('partial-reveal-area');
   const resultsDiv   = document.getElementById('results-area');
   const submittedDiv = document.getElementById('submitted-area');
   const mySubmitted  = (subStatus || []).find(s => s.email === STATE.user?.email)?.submitted;
+
+  // Always hide partial-reveal area first; show it below if needed
+  partialArea.classList.add('hidden');
 
   if (weekClosed && results.length) {
     picking.classList.add('hidden');
@@ -875,31 +893,65 @@ function renderPicksView() {
     resultsDiv.classList.remove('hidden');
     submittedDiv.classList.add('hidden');
     renderWeekResults(results, games, myPicks);
-  } else if (allPicksIn) {
+
+  } else if (b2Revealed) {
+    // Full bucket-2 reveal — show the all-picks grid
     picking.classList.add('hidden');
     revealed.classList.remove('hidden');
     resultsDiv.classList.add('hidden');
     submittedDiv.classList.add('hidden');
-    renderAllPicksGrid(STATE.weekData.picks, games);
+    // Update banner message
+    const bannerMsg = pastBackstop && !allPicksIn
+      ? 'Sunday 1pm has passed — picks are now public. Any empty slots are ungraded this week.'
+      : 'All 5 players have locked in. Here\'s how everyone picked this week.';
+    document.getElementById('reveal-banner-msg').textContent = bannerMsg;
+    renderAllPicksGrid(picks || [], games);
     startPollIfNeeded(week.weekId);
+
   } else if (mySubmitted) {
     picking.classList.add('hidden');
     revealed.classList.add('hidden');
     resultsDiv.classList.add('hidden');
     submittedDiv.classList.remove('hidden');
     renderSubmittedPicks(games, myPicks);
+    // Show partial reveal section if any bucket-1 games have kicked off
+    if (anyRevealed) {
+      showPartialReveal(picks || [], games, revealedGames);
+    }
     startPollIfNeeded(week.weekId);
+
   } else {
     picking.classList.remove('hidden');
     revealed.classList.add('hidden');
     resultsDiv.classList.add('hidden');
     submittedDiv.classList.add('hidden');
-    // Restore selections from myPicks
+    // Restore selections from myPicks (including locked games — they show frozen)
     myPickSelections = {};
     for (const p of myPicks) myPickSelections[p.gameId] = { pickedTeam: p.pickedTeam, isDD: p.isDD };
     renderGamesList(games, myPicks);
+    // Show partial reveal section if any bucket-1 games have kicked off
+    if (anyRevealed) {
+      showPartialReveal(picks || [], games, revealedGames);
+    }
     startPollIfNeeded(week.weekId);
   }
+}
+
+/**
+ * Show the partial-reveal section (bucket-1 games that have kicked off and revealed).
+ * picks = server-filtered list of picks for revealed games only.
+ * revealedGames = games with isRevealed=true.
+ */
+function showPartialReveal(picks, games, revealedGames) {
+  const partialArea = document.getElementById('partial-reveal-area');
+  const labelEl     = document.getElementById('partial-reveal-label');
+  const gridEl      = document.getElementById('partial-picks-grid');
+
+  labelEl.textContent = `${revealedGames.length} game${revealedGames.length > 1 ? 's' : ''} kicked off`;
+  partialArea.classList.remove('hidden');
+
+  // Render a picks grid for just the revealed games
+  renderPicksGridInto('partial-picks-grid', picks, revealedGames, []);
 }
 
 function loadLastClosedWeekSummary() {
@@ -1041,9 +1093,15 @@ function selectTeam(gameId, team, btn) {
     return;
   }
 
-  // Block new pick if already at 5 and this game has no pick yet
+  // Block new pick if already at max (5 or fewer if some bucket-1 games locked) and this game has no pick yet
+  const { games: gList, week: w } = STATE.weekData || {};
+  const isTestW = w?.type === 'test';
+  const lockedIds = new Set((gList || []).filter(g => !isTestW && g.isLocked).map(g => g.gameId));
+  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && lockedIds.has(gid)).length;
+  const unlockedAvail  = (gList || []).filter(g => !lockedIds.has(g.gameId)).length;
+  const maxP = Math.min(5, lockedWithPick + unlockedAvail);
   const currentCount = Object.values(myPickSelections).filter(v => v && v.pickedTeam).length;
-  if (!myPickSelections[gameId] && currentCount >= 5) {
+  if (!myPickSelections[gameId] && currentCount >= maxP) {
     showToast('Already at 5 picks — deselect one first', 'error');
     return;
   }
@@ -1127,12 +1185,29 @@ function toggleDD(gameId) {
 }
 
 function updatePickBar() {
-  const picks = Object.values(myPickSelections).filter(p => p && p.pickedTeam);
+  const { games, week } = STATE.weekData || {};
+  const isTest = week?.type === 'test';
+
+  // Build a map of locked games (bucket-1 past kickoff)
+  const lockedGameIds = new Set();
+  (games || []).forEach(g => {
+    if (!isTest && g.isLocked) lockedGameIds.add(g.gameId);
+  });
+
+  const allSelections = Object.entries(myPickSelections).filter(([, v]) => v && v.pickedTeam);
+  const picks  = allSelections.map(([, v]) => v);
+  const n      = picks.length;
   const ddPicks = picks.filter(p => p.isDD);
-  const n = picks.length;
-  const hasDD = ddPicks.length === 1;
+  const hasDD  = ddPicks.length === 1;
+
+  // Max pickable = locked picks with existing selections + unlocked games, capped at 5
+  const lockedWithPick  = allSelections.filter(([gid]) => lockedGameIds.has(gid)).length;
+  const unlockedGames   = (games || []).filter(g => !lockedGameIds.has(g.gameId)).length;
+  const maxPicks        = Math.min(5, lockedWithPick + unlockedGames);
 
   document.getElementById('pick-count-n').textContent = n;
+  document.getElementById('pick-count-max').textContent = maxPicks;
+
   const ddEl = document.getElementById('dd-status');
   if (hasDD) {
     ddEl.textContent = '🔥 Double Down set';
@@ -1146,15 +1221,22 @@ function updatePickBar() {
   }
 
   const submitBtn = document.getElementById('submit-btn');
-  submitBtn.disabled = !(n === 5 && hasDD);
+  submitBtn.disabled = !(n >= maxPicks && maxPicks > 0 && hasDD);
 }
 
 function submitPicks() {
+  const { games: gList, week: w } = STATE.weekData || {};
+  const isTestW = w?.type === 'test';
+  const lockedIds = new Set((gList || []).filter(g => !isTestW && g.isLocked).map(g => g.gameId));
+  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && lockedIds.has(gid)).length;
+  const unlockedAvail  = (gList || []).filter(g => !lockedIds.has(g.gameId)).length;
+  const maxP = Math.min(5, lockedWithPick + unlockedAvail);
+
   const picks = Object.entries(myPickSelections)
     .filter(([, v]) => v && v.pickedTeam)
     .map(([gameId, v]) => ({ gameId, pickedTeam: v.pickedTeam, isDD: v.isDD }));
 
-  if (picks.length !== 5) { showToast('Select exactly 5 games', 'error'); return; }
+  if (picks.length < maxP) { showToast(`Select ${maxP} games before submitting`, 'error'); return; }
   if (picks.filter(p => p.isDD).length !== 1) { showToast('Set exactly 1 Double Down', 'error'); return; }
 
   document.getElementById('submit-btn').disabled = true;
@@ -1173,29 +1255,71 @@ function submitPicks() {
 
 // ─── ALL PICKS GRID ─────────────────────────────────────────────────
 function renderAllPicksGrid(allPicks, games) {
-  const el = document.getElementById('all-picks-grid');
+  renderPicksGridInto('all-picks-grid', allPicks, games, []);
+}
+
+/**
+ * Generic picks grid renderer. Can be used for full reveal or partial reveal.
+ * allPicks: picks visible to the client (already server-filtered for reveal state)
+ * games: array of game objects to show rows for
+ * results: optional result records (for closed weeks)
+ */
+function renderPicksGridInto(elId, allPicks, games, results) {
+  const el = document.getElementById(elId);
+  if (!el) return;
   const gameMap = {};
   games.forEach(g => gameMap[g.gameId] = g);
+  const resultMap = {};
+  (results || []).forEach(r => { if (!resultMap[r.gameId]) resultMap[r.gameId] = {}; resultMap[r.gameId][r.playerEmail] = r; });
 
-  const players = [...new Set(allPicks.map(p => p.playerEmail))];
+  // Determine player list from subStatus for consistent ordering
+  const subStatus = STATE.weekData?.subStatus || [];
+  const players   = subStatus.map(s => s.email);
   const playerNames = {};
-  (STATE.weekData.subStatus || []).forEach(s => playerNames[s.email] = s.displayName);
+  subStatus.forEach(s => playerNames[s.email] = s.displayName);
+  // Fallback: include any emails from picks not in subStatus
+  allPicks.forEach(p => { if (!players.includes(p.playerEmail)) players.push(p.playerEmail); });
+
+  if (!players.length) { el.innerHTML = '<div style="color:var(--muted);font-size:.85rem">No picks available.</div>'; return; }
 
   let html = '<table><thead><tr><th>Game</th>';
   players.forEach(e => html += `<th>${playerNames[e] || e}</th>`);
   html += '</tr></thead><tbody>';
 
   games.forEach(game => {
-    html += `<tr><td><strong>${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</strong></td>`;
+    const isRevealed = game.isRevealed !== false; // default true for closed weeks
+    html += `<tr><td><strong>${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</strong>`;
+    if (game.kickoffTime) {
+      const ko = new Date(game.kickoffTime).toLocaleString('en-US',{weekday:'short',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'});
+      html += `<br><span style="font-size:.72rem;color:var(--muted)">${ko}</span>`;
+    }
+    html += '</td>';
     players.forEach(email => {
+      if (!isRevealed) {
+        // Game not yet revealed — hide other players' picks
+        const isMine = email === STATE.user?.email;
+        const myPick = isMine ? (STATE.weekData?.myPicks || []).find(p => p.gameId === game.gameId) : null;
+        if (myPick) {
+          const isHome = myPick.pickedTeam === game.homeTeam;
+          const spread = isHome ? game.homeSpread : -game.homeSpread;
+          const sign   = spread > 0 ? '+' : '';
+          html += `<td><div class="pick-cell"><span class="pick-team">${abbrTeam(myPick.pickedTeam)} ${sign}${spread}</span>${myPick.isDD?'<span class="pick-dd-badge">🔥 DD</span>':''}</div></td>`;
+        } else {
+          html += '<td style="color:var(--muted);font-size:.8rem">—</td>';
+        }
+        return;
+      }
       const pick = allPicks.find(p => p.playerEmail === email && p.gameId === game.gameId);
-      if (!pick) { html += '<td>—</td>'; return; }
+      if (!pick) { html += '<td style="color:var(--muted)">—</td>'; return; }
       const isHome = pick.pickedTeam === game.homeTeam;
       const spread = isHome ? game.homeSpread : -game.homeSpread;
       const sign   = spread > 0 ? '+' : '';
+      const res    = resultMap[game.gameId]?.[email];
+      const resBadge = res ? `<span class="badge badge-${res.result}">${res.result==='P'?'PUSH':res.result==='C'?'CXL':res.result}</span>` : '';
       html += `<td><div class="pick-cell">
         <span class="pick-team">${abbrTeam(pick.pickedTeam)} ${sign}${spread}</span>
         ${pick.isDD ? '<span class="pick-dd-badge">🔥 DD</span>' : ''}
+        ${resBadge}
       </div></td>`;
     });
     html += '</tr>';
@@ -1409,50 +1533,6 @@ function loadWeekHistory(weekId, weekNum, isPlayoffs) {
     }).getWeekHistory(weekId);
 }
 
-function renderPicksGridInto(elId, allPicks, games, results) {
-  const el = document.getElementById(elId);
-  const gameMap   = {};
-  games.forEach(g => gameMap[g.gameId] = g);
-  const resultMap = {}; // playerEmail+gameId → result
-  (results||[]).forEach(r => resultMap[r.playerEmail+'_'+r.gameId] = r);
-
-  const playerEmails = [...new Set(allPicks.map(p => p.playerEmail))];
-  const playerNames  = {};
-  (STATE.weekData?.subStatus||[]).forEach(s => playerNames[s.email] = s.displayName);
-  // Fallback: use email prefix
-  playerEmails.forEach(e => { if (!playerNames[e]) playerNames[e] = e.split('@')[0]; });
-
-  let html = '<table><thead><tr><th>Game</th>';
-  playerEmails.forEach(e => html += `<th>${playerNames[e]}</th>`);
-  html += '</tr></thead><tbody>';
-
-  games.forEach(game => {
-    html += `<tr><td><strong>${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</strong>`;
-    if (game.homeScore !== null && game.awayScore !== null) {
-      html += `<br><span style="font-size:.7rem;color:var(--muted)">${game.awayScore}-${game.homeScore}</span>`;
-    }
-    html += '</td>';
-    playerEmails.forEach(email => {
-      const pick = allPicks.find(p => p.playerEmail === email && p.gameId === game.gameId);
-      const res  = results && resultMap[email+'_'+game.gameId];
-      if (!pick) { html += '<td>—</td>'; return; }
-      const isHome = pick.pickedTeam === game.homeTeam;
-      const spread = isHome ? game.homeSpread : -game.homeSpread;
-      const sign   = spread > 0 ? '+' : '';
-      const badge  = res ? `<span class="badge badge-${res.result}">${res.result==='P'?'PUSH':res.result}</span>` : '';
-      html += `<td><div class="pick-cell">
-        <span class="pick-team">${abbrTeam(pick.pickedTeam)} ${sign}${spread}</span>
-        ${pick.isDD ? '<span class="pick-dd-badge">🔥 DD</span>' : ''}
-        ${badge}
-      </div></td>`;
-    });
-    html += '</tr>';
-  });
-
-  html += '</tbody></table>';
-  el.innerHTML = html;
-}
-
 // ─── ADMIN VIEW ─────────────────────────────────────────────────────
 function renderAdminView() {
   if (!STATE.user?.isAdmin) { switchView('picks'); return; }
@@ -1518,10 +1598,14 @@ function renderAdminDashboard(data) {
     const sign = hs > 0 ? '+' : '';
     const scoreStr = g.homeScore != null && g.homeScore !== '' ? ` · Final: ${g.awayScore}-${g.homeScore}` : '';
     const statusStr = g.status === 'cancelled' ? ' · <span style="color:var(--red)">Cancelled</span>' : '';
+    const koStr = g.kickoffTime ? new Date(g.kickoffTime).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'}) : 'TBD';
+    const bucketLabel = g.bucket ? `B${g.bucket}` : '';
+    const lockIcon = g.isLocked ? ' 🔒' : '';
     return `<div class="sub-row">
       <div>
         <strong>${abbrTeam(g.awayTeam)} @ ${abbrTeam(g.homeTeam)}</strong>
-        <div style="font-size:.75rem;color:var(--muted)">${abbrTeam(g.homeTeam)} ${sign}${hs}${scoreStr}${statusStr}</div>
+        <div style="font-size:.75rem;color:var(--muted)">${abbrTeam(g.homeTeam)} ${sign}${hs} · ${koStr}${scoreStr}${statusStr}</div>
+        <div style="font-size:.7rem;color:var(--orange)">${bucketLabel}${lockIcon}</div>
       </div>
     </div>`;
   }).join('');
@@ -1569,11 +1653,13 @@ function buildAdminActions(data) {
     </div>`;
     return;
   }
-  const { week, allPicksIn, gradingStatus } = data;
+  const { week, allPicksIn, pastNoon, pastBackstop, b2Revealed, gradingStatus } = data;
+  const _b2Rev = b2Revealed || (allPicksIn && pastNoon) || pastBackstop;
   el.innerHTML = `
     <div class="admin-action">
-      <h4>Picks${allPicksIn?' ✓ Revealed':''}</h4>
-      <p>${allPicksIn?'All 5 players submitted.':'Waiting for players to submit.'}</p>
+      <h4>Picks${_b2Rev?' ✓ Revealed':allPicksIn?' (all in, awaiting noon)':''}</h4>
+      <p>${_b2Rev?'All picks revealed.':allPicksIn?'All 5 submitted — bucket 2 reveals at Saturday noon.':'Waiting for players to submit.'}</p>
+      <button class="btn btn-secondary btn-sm" style="margin-top:.4rem" onclick="adminRefreshOdds()">🔄 Refresh Odds</button>
     </div>
     <div class="admin-action">
       <h4>Scoring</h4>
@@ -1731,6 +1817,15 @@ function adminPublishResults() {
     .adminPublishResults(week.weekId);
 }
 
+function adminRefreshOdds() {
+  if (!confirm('Pull latest odds from The Odds API and upsert games for the current week?')) return;
+  gsr(r => {
+      showToast(`Odds refreshed: ${r.upserted || 0} games updated`, 'success');
+      renderAdminView();
+    }, err => showToast(err.message || 'Odds refresh failed', 'error'))
+    .adminRefreshOdds();
+}
+
 function getCopyText(type) {
   const week = STATE.weekData?.week;
   if (!week) return;
@@ -1751,20 +1846,37 @@ function copyText() {
 // ─── Poll ──────────────────────────────────────────────────────────
 function startPollIfNeeded(weekId) {
   if (pollInterval) clearInterval(pollInterval);
-  if (!STATE.weekData?.allPicksIn && STATE.weekData?.week?.status !== 'closed') {
+  // Always poll while week is open — need to detect bucket-1 kickoffs mid-week
+  if (STATE.weekData?.week && STATE.weekData?.week?.status !== 'closed') {
     pollInterval = setInterval(() => pollReveal(weekId), 30000);
   }
 }
 
 function pollReveal(weekId) {
   gsr(res => {
-      const shouldReveal = res.allPicksIn && res.pastNoon;
-      const wasRevealed  = STATE.weekData?.allPicksIn && STATE.weekData?.pastNoon;
-      if (shouldReveal && !wasRevealed) {
+      // Count newly revealed games
+      const prevRevealedCount = (STATE.weekData?.games || []).filter(g => g.isRevealed).length;
+      const newRevealedCount  = (res.games || []).filter(g => g.isRevealed).length;
+      const b2NowRevealed  = (res.allPicksIn && res.pastNoon) || (res.pastBackstop || false);
+      const b2WasRevealed  = (STATE.weekData?.allPicksIn && STATE.weekData?.pastNoon) || (STATE.weekData?.pastBackstop || false);
+
+      if (newRevealedCount > prevRevealedCount || (b2NowRevealed && !b2WasRevealed)) {
+        // Something new revealed — refresh full state
         clearInterval(pollInterval);
         loadAppState();
       } else {
+        // Just update submission pills and game lock states
         renderSubPills(res.subStatus);
+        if (res.games && STATE.weekData?.games) {
+          res.games.forEach(rg => {
+            const local = STATE.weekData.games.find(g => g.gameId === rg.gameId);
+            if (local) {
+              local.isLocked   = rg.isLocked;
+              local.isRevealed = rg.isRevealed;
+              local.bucket     = rg.bucket;
+            }
+          });
+        }
       }
     }, () => {}, true) // silent — background poll
     .pollPickReveal(weekId);
