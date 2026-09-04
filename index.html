@@ -117,6 +117,7 @@ main{flex:1;padding:1rem;max-width:900px;margin:0 auto;width:100%}
   transition:border-color .15s;
 }
 .game-card.locked{opacity:.6}
+.game-card.odds-pending{opacity:.5;filter:grayscale(.4)}
 .game-card.picked-home,.game-card.picked-away{border-color:var(--orange)}
 .game-meta{font-size:.72rem;color:var(--muted);margin-bottom:.5rem;display:flex;justify-content:space-between}
 .game-meta .lock-label{color:var(--red);font-weight:600}
@@ -1027,8 +1028,13 @@ function renderGamesList(games, myPicks) {
 }
 
 function buildGameCard(game, sel) {
-  const card = document.createElement('div');
-  const locked = game.isLocked && STATE.weekData?.week?.type !== 'test';
+  const card     = document.createElement('div');
+  const isTest   = STATE.weekData?.week?.type === 'test';
+  const locked   = game.isLocked && !isTest;
+  // oddsPosted = odds for this game have been published (scheduled pull ran).
+  // When false (and not a test week), the card is dimmed and picks are blocked.
+  const oddsOpen = isTest || game.oddsPosted !== false;
+
   const homeAbbr = abbrTeam(game.homeTeam);
   const awayAbbr = abbrTeam(game.awayTeam);
   const homeSpread = parseFloat(game.homeSpread);
@@ -1050,25 +1056,34 @@ function buildGameCard(game, sel) {
     ? new Date(game.kickoffTime).toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York'})
     : '';
 
-  card.className = `game-card${locked?' locked':''}${pickedHome?' picked-home':pickedAway?' picked-away':''}`;
+  // Build the "opens at" label for games whose odds haven't been pulled yet
+  let oddsLabel = '';
+  if (!oddsOpen && game.picksOpenAt) {
+    const openDt = new Date(game.picksOpenAt);
+    const openDay = openDt.toLocaleString('en-US', { weekday: 'short', timeZone: 'America/New_York' });
+    oddsLabel = `<span class="lock-label">⏳ Opens ${openDay} noon ET</span>`;
+  }
+
+  const disableAll = locked || !oddsOpen;
+  card.className = `game-card${disableAll?' locked':''}${!oddsOpen?' odds-pending':''}${pickedHome?' picked-home':pickedAway?' picked-away':''}`;
   card.innerHTML = `
     <div class="game-meta">
       <span>${kickoff}</span>
-      ${locked ? '<span class="lock-label">🔒 Locked</span>' : ''}
+      ${locked ? '<span class="lock-label">🔒 Locked</span>' : oddsLabel}
     </div>
     <div class="matchup">
-      <button class="team-btn${pickedAway?' selected':''}"${awaySelStyle} ${locked?'disabled':''} data-tc="${awayColor||''}" onclick="selectTeam('${game.gameId}','${game.awayTeam}',this)">
+      <button class="team-btn${pickedAway?' selected':''}"${awaySelStyle} ${disableAll?'disabled':''} data-tc="${awayColor||''}" onclick="selectTeam('${game.gameId}','${game.awayTeam}',this)">
         <span class="team-abbr"${awayAbbrStyle}>${awayAbbr}</span>
         <span class="team-spread">${fmtSpread(awaySpread)}</span>
       </button>
       <span class="vs-label">@</span>
-      <button class="team-btn${pickedHome?' selected':''}"${homeSelStyle} ${locked?'disabled':''} data-tc="${homeColor||''}" onclick="selectTeam('${game.gameId}','${game.homeTeam}',this)">
+      <button class="team-btn${pickedHome?' selected':''}"${homeSelStyle} ${disableAll?'disabled':''} data-tc="${homeColor||''}" onclick="selectTeam('${game.gameId}','${game.homeTeam}',this)">
         <span class="team-abbr"${homeAbbrStyle}>${homeAbbr}</span>
         <span class="team-spread">${fmtSpread(homeSpread)}</span>
       </button>
     </div>
     <div class="dd-row">
-      <button class="dd-toggle${isDD?' active':''}" ${!sel||locked?'disabled':''} id="dd-${game.gameId}" onclick="toggleDD('${game.gameId}')">
+      <button class="dd-toggle${isDD?' active':''}" ${!sel||disableAll?'disabled':''} id="dd-${game.gameId}" onclick="toggleDD('${game.gameId}')">
         <span class="flame">🔥</span> Double Down
       </button>
     </div>`;
@@ -1093,12 +1108,12 @@ function selectTeam(gameId, team, btn) {
     return;
   }
 
-  // Block new pick if already at max (5 or fewer if some bucket-1 games locked) and this game has no pick yet
+  // Block new pick if already at max (5 or fewer if some games are locked or odds pending)
   const { games: gList, week: w } = STATE.weekData || {};
   const isTestW = w?.type === 'test';
-  const lockedIds = new Set((gList || []).filter(g => !isTestW && g.isLocked).map(g => g.gameId));
-  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && lockedIds.has(gid)).length;
-  const unlockedAvail  = (gList || []).filter(g => !lockedIds.has(g.gameId)).length;
+  const blockedIds = new Set((gList || []).filter(g => !isTestW && (g.isLocked || g.oddsPosted === false)).map(g => g.gameId));
+  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && blockedIds.has(gid)).length;
+  const unlockedAvail  = (gList || []).filter(g => !blockedIds.has(g.gameId)).length;
   const maxP = Math.min(5, lockedWithPick + unlockedAvail);
   const currentCount = Object.values(myPickSelections).filter(v => v && v.pickedTeam).length;
   if (!myPickSelections[gameId] && currentCount >= maxP) {
@@ -1188,10 +1203,12 @@ function updatePickBar() {
   const { games, week } = STATE.weekData || {};
   const isTest = week?.type === 'test';
 
-  // Build a map of locked games (bucket-1 past kickoff)
-  const lockedGameIds = new Set();
+  // A game is "blocked" if: (a) past kickoff (isLocked) OR (b) odds not yet published
+  // Both conditions prevent picking. In test weeks nothing is blocked.
+  const blockedGameIds = new Set();
   (games || []).forEach(g => {
-    if (!isTest && g.isLocked) lockedGameIds.add(g.gameId);
+    if (isTest) return;
+    if (g.isLocked || g.oddsPosted === false) blockedGameIds.add(g.gameId);
   });
 
   const allSelections = Object.entries(myPickSelections).filter(([, v]) => v && v.pickedTeam);
@@ -1200,9 +1217,9 @@ function updatePickBar() {
   const ddPicks = picks.filter(p => p.isDD);
   const hasDD  = ddPicks.length === 1;
 
-  // Max pickable = locked picks with existing selections + unlocked games, capped at 5
-  const lockedWithPick  = allSelections.filter(([gid]) => lockedGameIds.has(gid)).length;
-  const unlockedGames   = (games || []).filter(g => !lockedGameIds.has(g.gameId)).length;
+  // Max pickable = blocked picks with existing selections + unblocked games, capped at 5
+  const lockedWithPick  = allSelections.filter(([gid]) => blockedGameIds.has(gid)).length;
+  const unlockedGames   = (games || []).filter(g => !blockedGameIds.has(g.gameId)).length;
   const maxPicks        = Math.min(5, lockedWithPick + unlockedGames);
 
   document.getElementById('pick-count-n').textContent = n;
@@ -1227,9 +1244,9 @@ function updatePickBar() {
 function submitPicks() {
   const { games: gList, week: w } = STATE.weekData || {};
   const isTestW = w?.type === 'test';
-  const lockedIds = new Set((gList || []).filter(g => !isTestW && g.isLocked).map(g => g.gameId));
-  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && lockedIds.has(gid)).length;
-  const unlockedAvail  = (gList || []).filter(g => !lockedIds.has(g.gameId)).length;
+  const blockedIds = new Set((gList || []).filter(g => !isTestW && (g.isLocked || g.oddsPosted === false)).map(g => g.gameId));
+  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && blockedIds.has(gid)).length;
+  const unlockedAvail  = (gList || []).filter(g => !blockedIds.has(g.gameId)).length;
   const maxP = Math.min(5, lockedWithPick + unlockedAvail);
 
   const picks = Object.entries(myPickSelections)
