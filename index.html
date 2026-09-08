@@ -412,11 +412,11 @@ select.form-input option{background:var(--surface)}
         <div id="picking-area">
           <div class="pick-bar">
             <div>
-              <div class="pick-count"><span class="n" id="pick-count-n">0</span>/<span id="pick-count-max">5</span> picks selected</div>
+              <div class="pick-count"><span class="n" id="pick-count-n">0</span>/<span id="pick-count-max">5</span> picks saved</div>
               <div class="dd-count" id="dd-status">No Double Down selected yet</div>
             </div>
             <button class="btn btn-primary" id="submit-btn" disabled onclick="submitPicks()">
-              Submit Picks
+              Save Picks
             </button>
           </div>
           <div id="games-list"></div>
@@ -1318,18 +1318,20 @@ function updatePickBar() {
   });
 
   const allSelections = Object.entries(myPickSelections).filter(([, v]) => v && v.pickedTeam);
-  const picks  = allSelections.map(([, v]) => v);
-  const n      = picks.length;
+  const picks = allSelections.map(([, v]) => v);
   const ddPicks = picks.filter(p => p.isDD);
   const hasDD  = ddPicks.length === 1;
 
-  // Max pickable = blocked picks with existing selections + unblocked games, capped at 5
-  const lockedWithPick  = allSelections.filter(([gid]) => blockedGameIds.has(gid)).length;
-  const unlockedGames   = (games || []).filter(g => !blockedGameIds.has(g.gameId)).length;
-  const maxPicks        = Math.min(5, lockedWithPick + unlockedGames);
+  // Counter shows server-saved picks, not current session selections
+  const savedCount = (STATE.weekData?.myPicks || []).length;
+  document.getElementById('pick-count-n').textContent = savedCount;
+  document.getElementById('pick-count-max').textContent = '5';
 
-  document.getElementById('pick-count-n').textContent = n;
-  document.getElementById('pick-count-max').textContent = maxPicks;
+  // DD is only required when the full slate (locked + unlocked selections) reaches 5
+  const unlockedSelections = allSelections.filter(([gid]) => !blockedGameIds.has(gid));
+  const lockedSelections   = allSelections.filter(([gid]) =>  blockedGameIds.has(gid));
+  const totalAfterSave     = lockedSelections.length + unlockedSelections.length;
+  const needsDD            = totalAfterSave >= 5;
 
   const ddEl = document.getElementById('dd-status');
   if (hasDD) {
@@ -1338,41 +1340,49 @@ function updatePickBar() {
   } else if (ddPicks.length > 1) {
     ddEl.textContent = 'Only 1 Double Down allowed';
     ddEl.className = 'dd-count';
+  } else if (needsDD) {
+    ddEl.textContent = 'Double Down required to complete your picks';
+    ddEl.className = 'dd-count';
   } else {
     ddEl.textContent = 'No Double Down selected yet';
     ddEl.className = 'dd-count';
   }
 
+  // Enable Save Picks when: at least 1 unlocked pick selected, DD satisfied if completing slate
   const submitBtn = document.getElementById('submit-btn');
-  submitBtn.disabled = !(n >= maxPicks && maxPicks > 0 && hasDD);
+  submitBtn.disabled = unlockedSelections.length === 0 || (needsDD && !hasDD);
 }
 
 function submitPicks() {
   const { games: gList, week: w } = STATE.weekData || {};
   const isTestW = w?.type === 'test';
   const blockedIds = new Set((gList || []).filter(g => !isTestW && (g.isLocked || g.oddsPosted === false)).map(g => g.gameId));
-  const lockedWithPick = Object.entries(myPickSelections).filter(([gid, v]) => v?.pickedTeam && blockedIds.has(gid)).length;
-  const unlockedAvail  = (gList || []).filter(g => !blockedIds.has(g.gameId)).length;
-  const maxP = Math.min(5, lockedWithPick + unlockedAvail);
 
   const picks = Object.entries(myPickSelections)
     .filter(([, v]) => v && v.pickedTeam)
     .map(([gameId, v]) => ({ gameId, pickedTeam: v.pickedTeam, isDD: v.isDD }));
 
-  if (picks.length < maxP) { showToast(`Select ${maxP} games before submitting`, 'error'); return; }
-  if (picks.filter(p => p.isDD).length !== 1) { showToast('Set exactly 1 Double Down', 'error'); return; }
+  const unlockedPicks = picks.filter(p => !blockedIds.has(p.gameId));
+
+  if (unlockedPicks.length === 0) { showToast('Select at least one game to save', 'error'); return; }
+
+  // DD only required when completing the full 5-pick slate
+  if (picks.length >= 5 && picks.filter(p => p.isDD).length !== 1) {
+    showToast('Set exactly 1 Double Down to complete your picks', 'error');
+    return;
+  }
 
   document.getElementById('submit-btn').disabled = true;
-  document.getElementById('submit-btn').textContent = 'Submitting…';
+  document.getElementById('submit-btn').textContent = 'Saving…';
 
   gsr(res => {
-      showToast('Picks submitted! 🏈', 'success');
-      document.getElementById('submit-btn').textContent = 'Submit Picks';
+      showToast('Picks saved! 🏈', 'success');
+      document.getElementById('submit-btn').textContent = 'Save Picks';
       loadAppState();
     }, err => {
-      showToast(err.message || 'Error submitting picks', 'error');
+      showToast(err.message || 'Error saving picks', 'error');
       document.getElementById('submit-btn').disabled = false;
-      document.getElementById('submit-btn').textContent = 'Submit Picks';
+      document.getElementById('submit-btn').textContent = 'Save Picks';
     }).submitPicks(picks);
 }
 
