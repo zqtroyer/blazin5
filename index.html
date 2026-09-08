@@ -422,6 +422,18 @@ select.form-input option{background:var(--surface)}
           <div id="games-list"></div>
         </div>
 
+        <!-- Save Picks confirmation modal -->
+        <div id="save-confirm-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:center;justify-content:center;padding:1rem">
+          <div style="background:var(--surface);border-radius:14px;padding:1.25rem;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.35)">
+            <div style="font-weight:700;font-size:1rem;margin-bottom:.75rem">Confirm Picks</div>
+            <div id="save-confirm-list" style="font-size:.875rem;margin-bottom:1rem"></div>
+            <div style="display:flex;gap:.5rem">
+              <button class="btn btn-primary" style="flex:1" onclick="confirmSavePicks()">Save</button>
+              <button class="btn btn-secondary" style="flex:1" onclick="document.getElementById('save-confirm-overlay').style.display='none'">Cancel</button>
+            </div>
+          </div>
+        </div>
+
         <!-- Partial reveal: some bucket-1 games have kicked off and revealed, bucket-2 still pending -->
         <div id="partial-reveal-area" class="hidden">
           <div class="card">
@@ -1348,9 +1360,10 @@ function updatePickBar() {
     ddEl.className = 'dd-count';
   }
 
-  // Enable Save Picks when: at least 1 unlocked pick selected, DD satisfied if completing slate
+  // Enable Save Picks when: there are unlocked games available (even to clear picks), DD satisfied if completing slate
+  const unlockedGamesAvail = (games || []).filter(g => !blockedGameIds.has(g.gameId)).length;
   const submitBtn = document.getElementById('submit-btn');
-  submitBtn.disabled = unlockedSelections.length === 0 || (needsDD && !hasDD);
+  submitBtn.disabled = unlockedGamesAvail === 0 || (needsDD && !hasDD);
 }
 
 function submitPicks() {
@@ -1362,16 +1375,39 @@ function submitPicks() {
     .filter(([, v]) => v && v.pickedTeam)
     .map(([gameId, v]) => ({ gameId, pickedTeam: v.pickedTeam, isDD: v.isDD }));
 
-  const unlockedPicks = picks.filter(p => !blockedIds.has(p.gameId));
-
-  if (unlockedPicks.length === 0) { showToast('Select at least one game to save', 'error'); return; }
-
   // DD only required when completing the full 5-pick slate
   if (picks.length >= 5 && picks.filter(p => p.isDD).length !== 1) {
     showToast('Set exactly 1 Double Down to complete your picks', 'error');
     return;
   }
 
+  // Build confirmation modal showing each unlocked game and current pick
+  const unlockedGames = (gList || []).filter(g => !blockedIds.has(g.gameId));
+  let html = '';
+  for (const game of unlockedGames) {
+    const sel  = myPickSelections[game.gameId];
+    const team = sel?.pickedTeam
+      ? `<strong>${abbrTeam(sel.pickedTeam)}</strong>${sel.isDD ? ' <span class="badge badge-DD" style="font-size:.65rem">DD</span>' : ''}`
+      : `<span style="color:var(--muted)">No pick</span>`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted)">${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</span>
+      <span>${team}</span>
+    </div>`;
+  }
+  document.getElementById('save-confirm-list').innerHTML = html;
+  document.getElementById('save-confirm-overlay').style.display = 'flex';
+}
+
+function confirmSavePicks() {
+  const { games: gList, week: w } = STATE.weekData || {};
+  const isTestW = w?.type === 'test';
+  const blockedIds = new Set((gList || []).filter(g => !isTestW && (g.isLocked || g.oddsPosted === false)).map(g => g.gameId));
+
+  const picks = Object.entries(myPickSelections)
+    .filter(([, v]) => v && v.pickedTeam)
+    .map(([gameId, v]) => ({ gameId, pickedTeam: v.pickedTeam, isDD: v.isDD }));
+
+  document.getElementById('save-confirm-overlay').style.display = 'none';
   document.getElementById('submit-btn').disabled = true;
   document.getElementById('submit-btn').textContent = 'Saving…';
 
