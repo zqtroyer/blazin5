@@ -1386,12 +1386,17 @@ function submitPicks() {
   let html = '';
   for (const game of unlockedGames) {
     const sel  = myPickSelections[game.gameId];
-    const team = sel?.pickedTeam
-      ? `<strong>${abbrTeam(sel.pickedTeam)}</strong>${sel.isDD ? ' <span class="badge badge-DD" style="font-size:.65rem">DD</span>' : ''}`
-      : `<span style="color:var(--muted)">No pick</span>`;
+    let teamLabel = `<span style="color:var(--muted)">No pick</span>`;
+    if (sel?.pickedTeam) {
+      const isHome = sel.pickedTeam === game.homeTeam;
+      const spread = isHome ? parseFloat(game.homeSpread) : -parseFloat(game.homeSpread);
+      const sign   = spread > 0 ? '+' : '';
+      const dd     = sel.isDD ? ' <span class="badge badge-DD" style="font-size:.65rem">DD</span>' : '';
+      teamLabel = `<strong>${abbrTeam(sel.pickedTeam)} ${sign}${spread}</strong>${dd}`;
+    }
     html += `<div style="display:flex;justify-content:space-between;align-items:center;padding:.35rem 0;border-bottom:1px solid var(--border)">
       <span style="color:var(--muted)">${abbrTeam(game.awayTeam)} @ ${abbrTeam(game.homeTeam)}</span>
-      <span>${team}</span>
+      <span>${teamLabel}</span>
     </div>`;
   }
   document.getElementById('save-confirm-list').innerHTML = html;
