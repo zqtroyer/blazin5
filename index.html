@@ -306,6 +306,7 @@ select.form-input option{background:var(--surface)}
   <header>
     <div class="logo">🔥<span>Blazin'</span> 5</div>
     <div class="user-badge">
+      <button onclick="loadAppState()" title="Refresh" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:2px 6px;line-height:1" id="hdr-refresh" class="hidden">↻</button>
       <span id="hdr-name">...</span>
       <span id="hdr-admin" class="admin-badge hidden">Admin</span>
       <span id="hdr-player" class="player-badge hidden">Player</span>
@@ -725,13 +726,6 @@ select.form-input option{background:var(--surface)}
         <div id="admin-games-list" style="margin-top:.75rem"></div>
       </div>
 
-      <!-- Player PINs -->
-      <div class="card">
-        <div class="card-title">Player PINs</div>
-        <div style="font-size:.8rem;color:var(--muted);margin-bottom:.75rem">Set each player's 4-digit login PIN. They'll use this every time they sign in on a new device.</div>
-        <div id="admin-pin-list"></div>
-        <button class="btn btn-primary btn-sm" style="margin-top:.75rem" onclick="adminSavePins()">Save PINs</button>
-      </div>
     </div>
   </main>
 </div>
@@ -908,6 +902,7 @@ function logout() {
   STATE.user = null;
   // Reset header
   document.getElementById('hdr-name').textContent = '...';
+  document.getElementById('hdr-refresh').classList.add('hidden');
   document.getElementById('hdr-admin').classList.add('hidden');
   document.getElementById('hdr-player').classList.add('hidden');
   document.getElementById('hdr-logout').classList.add('hidden');
@@ -952,6 +947,7 @@ function renderHeader() {
   const u = STATE.user;
   if (!u) return;
   document.getElementById('hdr-name').textContent = u.displayName || u.email;
+  document.getElementById('hdr-refresh').classList.remove('hidden');
   document.getElementById('hdr-logout').classList.remove('hidden');
   const adminBadge = document.getElementById('hdr-admin');
   const adminNav   = document.getElementById('admin-nav-btn');
@@ -1184,7 +1180,7 @@ function buildGameCard(game, sel) {
   let lockLabel = '';
   if (locked) {
     if (isCompleted) {
-      lockLabel = `<span class="lock-label" style="color:var(--muted)">🏁 ${abbrTeam(game.awayTeam)} ${game.awayScore} · ${abbrTeam(game.homeTeam)} ${game.homeScore}</span>`;
+      lockLabel = `<span class="lock-label" style="color:var(--green);font-weight:700">🏁 Final</span>`;
     } else {
       lockLabel = '<span class="lock-label">🔒 Locked</span>';
     }
@@ -1199,6 +1195,7 @@ function buildGameCard(game, sel) {
       <span>${kickoff}</span>
       ${lockLabel}
     </div>
+    ${isCompleted ? `<div style="text-align:center;padding:.3rem 0 .1rem;font-size:1rem;font-weight:800;color:var(--text);letter-spacing:.5px">${abbrTeam(game.awayTeam)} ${game.awayScore} &nbsp;·&nbsp; ${abbrTeam(game.homeTeam)} ${game.homeScore}</div>` : ''}
     <div class="matchup">
       <button class="team-btn${pickedAway?' selected':''}"${awaySelStyle} ${disableAll?'disabled':''} data-tc="${awayColor||''}" onclick="selectTeam('${game.gameId}','${game.awayTeam}',this)">
         <span class="team-abbr"${awayAbbrStyle}>${awayAbbr}</span>
