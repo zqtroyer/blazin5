@@ -823,6 +823,7 @@ async function callGAS(fn, ...args) {
     method: 'POST',
     body: JSON.stringify({ fn, args, auth: STATE.auth || {} }),
     // No Content-Type header → defaults to text/plain → no CORS preflight
+    cache: 'no-store', // always fetch fresh — never serve a cached response
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = await res.json();
