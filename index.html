@@ -156,14 +156,74 @@ main{flex:1;padding:1rem;max-width:900px;margin:0 auto;width:100%}
 .dd-count{font-size:.78rem;color:var(--muted)}
 .dd-count.ok{color:var(--green)}
 
-/* ── Submission status ───────────────────────────────── */
-.sub-status{display:flex;flex-wrap:wrap;gap:.4rem;margin-bottom:1rem}
+/* ── Submission status pills (kept for fallback) ─────── */
+.sub-status{display:flex;flex-wrap:wrap;gap:.4rem}
 .sub-pill{
   padding:.25rem .7rem;border-radius:20px;font-size:.75rem;font-weight:600;
   border:1px solid transparent;
 }
 .sub-pill.done{background:rgba(34,197,94,.15);color:var(--green);border-color:rgba(34,197,94,.3)}
 .sub-pill.waiting{background:rgba(148,163,184,.1);color:var(--muted);border-color:var(--border)}
+
+/* ── Player status grid ──────────────────────────────── */
+.psGrid-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:0 0 var(--radius) var(--radius);
+  overflow:hidden;margin-bottom:1rem;
+}
+.psGrid-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.psGrid-table thead tr{border-bottom:1px solid var(--border)}
+.psGrid-table thead th{
+  padding:.45rem .5rem;font-size:.64rem;font-weight:700;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.6px;text-align:center;
+}
+.psGrid-table thead th:first-child{text-align:left;padding-left:.9rem;width:86px}
+.psGrid-table tbody tr{border-bottom:1px solid rgba(51,65,85,.45);transition:background .1s}
+.psGrid-table tbody tr:last-child{border-bottom:none}
+.psGrid-table tbody tr:hover{background:rgba(255,255,255,.025)}
+.psGrid-player{
+  padding:.55rem .5rem .55rem .9rem;
+  font-weight:600;font-size:.8rem;color:var(--text);white-space:nowrap;
+}
+.psGrid-dot{
+  display:inline-block;width:6px;height:6px;border-radius:50%;
+  margin-right:.4rem;vertical-align:middle;position:relative;top:-1px;
+}
+.psGrid-dot.sub{background:var(--green)}
+.psGrid-dot.partial{background:var(--muted)}
+.psGrid-dot.none{background:rgba(51,65,85,.9);border:1px solid var(--border)}
+.psGrid-slot{padding:.4rem .3rem;text-align:center;vertical-align:middle}
+.pick-chip{
+  display:inline-flex;flex-direction:column;align-items:center;gap:1px;
+  background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.28);
+  border-radius:7px;padding:.28rem .42rem;min-width:50px;
+}
+.pick-chip.is-dd{background:rgba(249,115,22,.2);border-color:rgba(249,115,22,.5)}
+.pchip-team{font-weight:800;font-size:.77rem;color:var(--text);line-height:1}
+.pchip-spread{font-size:.65rem;color:var(--muted);line-height:1}
+.pchip-dd{font-size:.6rem;color:var(--orange);font-weight:700;line-height:1}
+.slot-check{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;
+  border:1.5px solid rgba(34,197,94,.35);background:rgba(34,197,94,.08);
+  color:var(--green);font-size:.82rem;font-weight:700;
+}
+.slot-progress{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;
+  border:1.5px solid rgba(148,163,184,.25);background:rgba(148,163,184,.06);
+  color:var(--muted);font-size:.7rem;font-weight:600;
+}
+.slot-empty{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:50%;
+  border:1.5px dashed rgba(51,65,85,.8);color:rgba(148,163,184,.25);font-size:.7rem;
+}
+.psGrid-sub-count{
+  font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+  padding:.15rem .45rem;border-radius:4px;
+  background:rgba(249,115,22,.15);color:var(--orange);white-space:nowrap;
+}
 
 /* ── Results grid ────────────────────────────────────── */
 .results-table{width:100%;border-collapse:collapse;font-size:.82rem}
@@ -388,15 +448,16 @@ select.form-input option{background:var(--surface)}
 
       <!-- Week open: picking in progress -->
       <div id="week-picks-area" class="hidden">
-        <div id="week-header" class="card" style="padding:.75rem 1rem">
+        <div id="week-header" class="card" style="padding:.75rem 1rem;border-radius:var(--radius) var(--radius) 0 0;border-bottom:none;margin-bottom:0">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
             <div>
               <div class="card-title" id="week-label-sm">Week 1</div>
               <div style="font-size:.8rem;color:var(--muted)">Deadline: <span id="week-deadline">—</span></div>
             </div>
-            <div id="sub-pills" class="sub-status"></div>
+            <div id="week-sub-count" class="psGrid-sub-count hidden"></div>
           </div>
         </div>
+        <div id="player-status-grid" class="psGrid-card hidden" style="margin-bottom:1rem"></div>
 
         <!-- Submitted: picks locked in, waiting for others -->
         <div id="submitted-area" class="hidden">
@@ -435,7 +496,7 @@ select.form-input option{background:var(--surface)}
           </div>
         </div>
 
-        <!-- Partial reveal: some bucket-1 games have kicked off and revealed, bucket-2 still pending -->
+        <!-- Partial reveal: legacy — replaced by player-status-grid above -->
         <div id="partial-reveal-area" class="hidden">
           <div class="card">
             <div class="card-title">🔓 Revealed so far — <span id="partial-reveal-label"></span></div>
@@ -984,8 +1045,8 @@ function renderPicksView() {
   document.getElementById('week-label-sm').textContent = `${typeLabel}Week ${week.weekNum}`;
   document.getElementById('week-deadline').textContent = 'Saturday at Noon ET';
 
-  // Submission pills
-  renderSubPills(subStatus);
+  // Player status grid (replaces sub-pills)
+  renderPlayerStatusGrid(subStatus, picks, games);
 
   // Decide which sub-area to show
   const weekClosed   = week.status === 'closed';
@@ -1000,6 +1061,12 @@ function renderPicksView() {
   partialArea.classList.add('hidden');
 
   if (weekClosed && results.length) {
+    // Hide the status grid and merge the week-header border when showing closed results
+    document.getElementById('player-status-grid').classList.add('hidden');
+    document.getElementById('week-sub-count').classList.add('hidden');
+    document.getElementById('week-header').style.borderRadius = 'var(--radius)';
+    document.getElementById('week-header').style.borderBottom = '1px solid var(--border)';
+    document.getElementById('week-header').style.marginBottom = '1rem';
     picking.classList.add('hidden');
     revealed.classList.add('hidden');
     resultsDiv.classList.remove('hidden');
@@ -1026,10 +1093,6 @@ function renderPicksView() {
     resultsDiv.classList.add('hidden');
     submittedDiv.classList.remove('hidden');
     renderSubmittedPicks(games, myPicks);
-    // Show partial reveal section if any bucket-1 games have kicked off
-    if (anyRevealed) {
-      showPartialReveal(picks || [], games, revealedGames);
-    }
     startPollIfNeeded(week.weekId);
 
   } else {
@@ -1041,10 +1104,6 @@ function renderPicksView() {
     myPickSelections = {};
     for (const p of myPicks) myPickSelections[p.gameId] = { pickedTeam: p.pickedTeam, isDD: p.isDD };
     renderGamesList(games, myPicks);
-    // Show partial reveal section if any bucket-1 games have kicked off
-    if (anyRevealed) {
-      showPartialReveal(picks || [], games, revealedGames);
-    }
     startPollIfNeeded(week.weekId);
   }
 }
@@ -1120,13 +1179,93 @@ function loadLastClosedWeekSummary() {
   }, null, true).getWeekHistory(lastWeek.weekId);
 }
 
-function renderSubPills(subStatus) {
-  const el = document.getElementById('sub-pills');
-  el.innerHTML = (subStatus || []).map(s => {
-    const cls = s.submitted ? 'done' : 'waiting';
-    const ico = s.submitted ? '✓' : `${s.pickCount}/5`;
-    return `<span class="sub-pill ${cls}">${s.displayName} ${ico}</span>`;
-  }).join('');
+function renderPlayerStatusGrid(subStatus, picks, games) {
+  const gridEl    = document.getElementById('player-status-grid');
+  const countEl   = document.getElementById('week-sub-count');
+  if (!gridEl) return;
+
+  const players = subStatus || [];
+  if (!players.length) { gridEl.classList.add('hidden'); countEl.classList.add('hidden'); return; }
+
+  // Submitted count badge in header
+  const subCount = players.filter(s => s.submitted).length;
+  countEl.textContent = `${subCount} of ${players.length} submitted`;
+  countEl.classList.remove('hidden');
+
+  // Build a map: playerEmail → revealed picks (sorted by kickoff)
+  const revealedByPlayer = {};
+  for (const p of players) revealedByPlayer[p.email] = [];
+
+  // picks here are the server-returned revealed picks (isRevealed games only)
+  const revealedGames = (games || []).filter(g => g.isRevealed)
+    .sort((a, b) => new Date(a.kickoffTime) - new Date(b.kickoffTime));
+
+  for (const pick of (picks || [])) {
+    if (revealedByPlayer[pick.playerEmail] !== undefined) {
+      revealedByPlayer[pick.playerEmail].push(pick);
+    }
+  }
+  // Sort each player's revealed picks by kickoff order
+  const gameOrder = {};
+  revealedGames.forEach((g, i) => gameOrder[g.gameId] = i);
+  for (const email of Object.keys(revealedByPlayer)) {
+    revealedByPlayer[email].sort((a, b) => (gameOrder[a.gameId] ?? 99) - (gameOrder[b.gameId] ?? 99));
+  }
+
+  function slotHtml(player, slotIndex) {
+    const revealed = revealedByPlayer[player.email] || [];
+    if (slotIndex < revealed.length) {
+      // Revealed pick
+      const pick = revealed[slotIndex];
+      const isHome = pick.pickedTeam && games && (() => {
+        const g = (games||[]).find(x => x.gameId === pick.gameId);
+        return g && pick.pickedTeam === g.homeTeam;
+      })();
+      const g = (games||[]).find(x => x.gameId === pick.gameId);
+      let spread = '';
+      if (g) {
+        const hs = parseFloat(g.homeSpread);
+        spread = isHome ? (hs > 0 ? `+${hs}` : `${hs}`) : (hs > 0 ? `-${hs}` : `+${Math.abs(hs)}`);
+      }
+      const ddClass = pick.isDD ? ' is-dd' : '';
+      return `<div class="pick-chip${ddClass}">
+        <span class="pchip-team">${abbrTeam(pick.pickedTeam)}</span>
+        <span class="pchip-spread">${spread}</span>
+        ${pick.isDD ? '<span class="pchip-dd">🔥 DD</span>' : ''}
+      </div>`;
+    }
+    // Not yet revealed
+    const totalRevealed = revealed.length;
+    const remaining = 5 - totalRevealed; // slots not yet revealed
+    if (player.submitted) {
+      // Has a pick here (submitted), just hidden
+      return '<span class="slot-check">✓</span>';
+    }
+    // Not submitted — show dots for picks saved, dashes for empty
+    const savedCount = player.pickCount || 0;
+    if (slotIndex < savedCount) {
+      return '<span class="slot-progress">·</span>';
+    }
+    return '<span class="slot-empty">—</span>';
+  }
+
+  let html = `<table class="psGrid-table"><thead><tr>
+    <th>Player</th><th>Pick 1</th><th>Pick 2</th><th>Pick 3</th><th>Pick 4</th><th>Pick 5</th>
+  </tr></thead><tbody>`;
+
+  for (const player of players) {
+    const dotClass = player.submitted ? 'sub' : (player.pickCount > 0 ? 'partial' : 'none');
+    html += `<tr>
+      <td class="psGrid-player"><span class="psGrid-dot ${dotClass}"></span>${player.displayName}</td>`;
+    for (let i = 0; i < 5; i++) {
+      html += `<td class="psGrid-slot">${slotHtml(player, i)}</td>`;
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  gridEl.innerHTML = html;
+  gridEl.classList.remove('hidden');
 }
 
 function renderGamesList(games, myPicks) {
