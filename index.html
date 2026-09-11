@@ -720,9 +720,6 @@ select.form-input option{background:var(--surface)}
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
           <button class="btn btn-secondary btn-sm" onclick="adminPullScores()">↻ Pull Scores from API</button>
           <button class="btn btn-secondary btn-sm" onclick="adminGradeWeek()">⚡ Grade Week</button>
-          <button class="btn btn-secondary btn-sm" style="color:#f87171;border-color:#f87171" onclick="adminDeleteWeek()">🗑 Delete Week</button>
-          <button class="btn btn-secondary btn-sm" style="color:#a78bfa;border-color:#a78bfa" onclick="adminFillTestPicks()" title="Fill random picks for all players who haven't submitted (test weeks only)">🎲 Fill Test Picks</button>
-          <button class="btn btn-secondary btn-sm" style="color:#a78bfa;border-color:#a78bfa" onclick="adminFillTestScores()" title="Fill random final scores for all games (test weeks only)">🎲 Fill Test Scores</button>
         </div>
         <div style="font-size:.75rem;color:var(--muted)">To enter or fix scores, edit the <strong>Games</strong> sheet directly.</div>
         <div id="admin-games-list" style="margin-top:.75rem"></div>
@@ -1182,12 +1179,25 @@ function buildGameCard(game, sel) {
     oddsLabel = `<span class="lock-label">⏳ Opens ${openDay} noon ET</span>`;
   }
 
+  // Determine if this locked game has a final score
+  const isCompleted = locked && (game.status === 'final' || (game.homeScore != null && game.homeScore !== ''));
+  let lockLabel = '';
+  if (locked) {
+    if (isCompleted) {
+      lockLabel = `<span class="lock-label" style="color:var(--muted)">🏁 ${abbrTeam(game.awayTeam)} ${game.awayScore} · ${abbrTeam(game.homeTeam)} ${game.homeScore}</span>`;
+    } else {
+      lockLabel = '<span class="lock-label">🔒 Locked</span>';
+    }
+  } else if (!oddsOpen) {
+    lockLabel = oddsLabel;
+  }
+
   const disableAll = locked || !oddsOpen;
   card.className = `game-card${disableAll?' locked':''}${!oddsOpen?' odds-pending':''}${pickedHome?' picked-home':pickedAway?' picked-away':''}`;
   card.innerHTML = `
     <div class="game-meta">
       <span>${kickoff}</span>
-      ${locked ? '<span class="lock-label">🔒 Locked</span>' : oddsLabel}
+      ${lockLabel}
     </div>
     <div class="matchup">
       <button class="team-btn${pickedAway?' selected':''}"${awaySelStyle} ${disableAll?'disabled':''} data-tc="${awayColor||''}" onclick="selectTeam('${game.gameId}','${game.awayTeam}',this)">
@@ -1840,7 +1850,6 @@ function buildAdminActions(data) {
     <div class="admin-action">
       <h4>Picks${_b2Rev?' ✓ Revealed':allPicksIn?' (all in, awaiting noon)':''}</h4>
       <p>${_b2Rev?'All picks revealed.':allPicksIn?'All 5 submitted — bucket 2 reveals at Saturday noon.':'Waiting for players to submit.'}</p>
-      <button class="btn btn-secondary btn-sm" style="margin-top:.4rem" onclick="adminRefreshOdds()">🔄 Refresh Odds</button>
     </div>
     <div class="admin-action">
       <h4>Scoring</h4>
