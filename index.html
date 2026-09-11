@@ -1334,7 +1334,7 @@ function buildGameCard(game, sel) {
       <span>${kickoff}</span>
       ${lockLabel}
     </div>
-    ${isCompleted ? `<div style="text-align:center;padding:.3rem 0 .1rem;font-size:1rem;font-weight:800;color:var(--text);letter-spacing:.5px">${abbrTeam(game.awayTeam)} ${game.awayScore} &nbsp;·&nbsp; ${abbrTeam(game.homeTeam)} ${game.homeScore}</div>` : ''}
+    ${isCompleted ? `<div style="display:flex;justify-content:center;align-items:center;padding:.3rem 0 .1rem;font-size:1rem;font-weight:800;color:var(--text);letter-spacing:.5px;width:100%">${abbrTeam(game.awayTeam)} ${game.awayScore} &nbsp;·&nbsp; ${abbrTeam(game.homeTeam)} ${game.homeScore}</div>` : ''}
     <div class="matchup">
       <button class="team-btn${pickedAway?' selected':''}"${awaySelStyle} ${disableAll?'disabled':''} data-tc="${awayColor||''}" onclick="selectTeam('${game.gameId}','${game.awayTeam}',this)">
         <span class="team-abbr"${awayAbbrStyle}>${awayAbbr}</span>
