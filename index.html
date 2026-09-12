@@ -504,16 +504,13 @@ select.form-input option{background:var(--surface)}
           </div>
         </div>
 
-        <!-- After bucket-2 reveal: all picks visible -->
+        <!-- After bucket-2 reveal: banner + locked game cards with live scores -->
         <div id="revealed-area" class="hidden">
           <div class="reveal-banner">
             <h2>🔓 Picks Revealed!</h2>
             <p id="reveal-banner-msg">All 5 players have locked in. Here's how everyone picked this week.</p>
           </div>
-          <div class="card">
-            <div class="card-title">This Week's Picks</div>
-            <div class="picks-grid" id="all-picks-grid"></div>
-          </div>
+          <div id="revealed-games-list"></div>
         </div>
 
         <!-- Results (when week is closed) -->
@@ -1085,7 +1082,7 @@ function renderPicksView() {
       ? 'Sunday 1pm has passed — picks are now public. Any empty slots are ungraded this week.'
       : 'All 5 players have locked in. Here\'s how everyone picked this week.';
     document.getElementById('reveal-banner-msg').textContent = bannerMsg;
-    renderAllPicksGrid(picks || [], games);
+    renderRevealedGameCards(games, myPicks);
     startPollIfNeeded(week.weekId);
 
   } else if (mySubmitted) {
@@ -1587,9 +1584,24 @@ function confirmSavePicks() {
     }).submitPicks(picks);
 }
 
-// ─── ALL PICKS GRID ─────────────────────────────────────────────────
+// ─── ALL PICKS GRID (legacy — kept for history view) ────────────────
 function renderAllPicksGrid(allPicks, games) {
   renderPicksGridInto('all-picks-grid', allPicks, games, []);
+}
+
+// ─── REVEALED STATE: locked game cards with live scores ─────────────
+function renderRevealedGameCards(games, myPicks) {
+  const el = document.getElementById('revealed-games-list');
+  if (!el) return;
+  el.innerHTML = '';
+  // Load the user's own picks into myPickSelections so cards highlight correctly
+  myPickSelections = {};
+  for (const p of (myPicks || [])) {
+    myPickSelections[p.gameId] = { pickedTeam: p.pickedTeam, isDD: p.isDD };
+  }
+  (games || []).forEach(game => {
+    el.appendChild(buildGameCard(game, myPickSelections[game.gameId]));
+  });
 }
 
 /**
