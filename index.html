@@ -366,7 +366,7 @@ select.form-input option{background:var(--surface)}
   <header>
     <div class="logo">🔥<span>Blazin'</span> 5</div>
     <div class="user-badge">
-      <button onclick="loadAppState()" title="Refresh" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:2px 6px;line-height:1" id="hdr-refresh" class="hidden">↻</button>
+      <button onclick="location.reload()" title="Refresh" style="background:none;border:none;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:2px 6px;line-height:1" id="hdr-refresh" class="hidden">↻</button>
       <span id="hdr-name">...</span>
       <span id="hdr-admin" class="admin-badge hidden">Admin</span>
       <span id="hdr-player" class="player-badge hidden">Player</span>
@@ -448,6 +448,12 @@ select.form-input option{background:var(--surface)}
 
       <!-- Week open: picking in progress -->
       <div id="week-picks-area" class="hidden">
+        <!-- Reveal banner — shown above everything when picks are revealed -->
+        <div id="reveal-banner-wrap" class="reveal-banner hidden">
+          <h2>🔓 Picks Revealed!</h2>
+          <p id="reveal-banner-msg">All 5 players have locked in. Here's how everyone picked this week.</p>
+        </div>
+
         <div id="week-header" class="card" style="padding:.75rem 1rem;border-radius:var(--radius) var(--radius) 0 0;border-bottom:none;margin-bottom:0">
           <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:.5rem">
             <div>
@@ -504,12 +510,8 @@ select.form-input option{background:var(--surface)}
           </div>
         </div>
 
-        <!-- After bucket-2 reveal: banner + locked game cards with live scores -->
+        <!-- After bucket-2 reveal: locked game cards with live scores -->
         <div id="revealed-area" class="hidden">
-          <div class="reveal-banner">
-            <h2>🔓 Picks Revealed!</h2>
-            <p id="reveal-banner-msg">All 5 players have locked in. Here's how everyone picked this week.</p>
-          </div>
           <div id="revealed-games-list"></div>
         </div>
 
@@ -1055,8 +1057,9 @@ function renderPicksView() {
   const submittedDiv = document.getElementById('submitted-area');
   const mySubmitted  = (subStatus || []).find(s => s.email === STATE.user?.email)?.submitted;
 
-  // Always hide partial-reveal area first; show it below if needed
+  // Always hide partial-reveal area and banner first
   partialArea.classList.add('hidden');
+  document.getElementById('reveal-banner-wrap').classList.add('hidden');
 
   if (weekClosed && results.length) {
     // Hide the status grid and merge the week-header border when showing closed results
@@ -1072,16 +1075,16 @@ function renderPicksView() {
     renderWeekResults(results, games, myPicks);
 
   } else if (b2Revealed) {
-    // Full bucket-2 reveal — show the all-picks grid
-    picking.classList.add('hidden');
-    revealed.classList.remove('hidden');
-    resultsDiv.classList.add('hidden');
-    submittedDiv.classList.add('hidden');
-    // Update banner message
+    // Show banner above everything, then status grid, then locked game cards
     const bannerMsg = pastBackstop && !allPicksIn
       ? 'Sunday 1pm has passed — picks are now public. Any empty slots are ungraded this week.'
       : 'All 5 players have locked in. Here\'s how everyone picked this week.';
     document.getElementById('reveal-banner-msg').textContent = bannerMsg;
+    document.getElementById('reveal-banner-wrap').classList.remove('hidden');
+    picking.classList.add('hidden');
+    revealed.classList.remove('hidden');
+    resultsDiv.classList.add('hidden');
+    submittedDiv.classList.add('hidden');
     renderRevealedGameCards(games, myPicks);
     startPollIfNeeded(week.weekId);
 
